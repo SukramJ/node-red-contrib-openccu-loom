@@ -9,13 +9,13 @@ const programNode = require("../nodes/openccu-loom-program.js");
 
 helper.init(require.resolve("node-red"));
 
-// The daemon exposes no single-program endpoint — only GET /programs
-// (list), POST /programs/{id}/execute and PATCH /programs/{id}. The
-// "get" mode therefore fetches the list and filters by id locally.
-const PROGRAMS = [
-  { id: "111", name: "Wakeup", active: true },
-  { id: "222", name: "Goodnight", active: false },
-];
+// "get" fetches a single program via GET /api/v1/programs/{id}
+// (see openccu-loom issue #126). The backend returns the ProgramSummary
+// or 404 when the id is unknown.
+const PROGRAMS = {
+  "111": { id: "111", name: "Wakeup", active: true },
+  "222": { id: "222", name: "Goodnight", active: false },
+};
 
 function startBackend(onRequest) {
   return new Promise((resolve) => {
@@ -52,13 +52,18 @@ describe("openccu-loom-program get mode", function () {
     requestedUrls = [];
     startBackend((req, res) => {
       requestedUrls.push(req.url);
-      if (req.url === "/api/v1/programs") {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(PROGRAMS));
+      const m = req.url.match(/^\/api\/v1\/programs\/([^/]+)$/);
+      if (m) {
+        const program = PROGRAMS[decodeURIComponent(m[1])];
+        if (program) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(program));
+          return;
+        }
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ title: "Not Found" }));
         return;
       }
-      // Any per-id path would be a regression — answer 404 so the test
-      // fails loudly if the node ever calls GET /programs/{id} again.
       res.writeHead(404);
       res.end();
     }).then((srv) => {
@@ -71,7 +76,7 @@ describe("openccu-loom-program get mode", function () {
     helper.unload().then(() => helper.stopServer(() => backend.close(done)));
   });
 
-  it("fetches the list and returns the matching program", function (done) {
+  it("fetches the program by id via GET /programs/{id}", function (done) {
     const port = backend.address().port;
     helper.load(
       [serverNode, programNode],
@@ -86,8 +91,7 @@ describe("openccu-loom-program get mode", function () {
               name: "Goodnight",
               active: false,
             });
-            // It must hit the list endpoint, never a per-id path.
-            assert.deepStrictEqual(requestedUrls, ["/api/v1/programs"]);
+            assert.deepStrictEqual(requestedUrls, ["/api/v1/programs/222"]);
             done();
           } catch (e) {
             done(e);
@@ -109,6 +113,7 @@ describe("openccu-loom-program get mode", function () {
         n2.on("input", (msg) => {
           try {
             assert.strictEqual(msg.payload.id, "111");
+            assert.deepStrictEqual(requestedUrls, ["/api/v1/programs/111"]);
             done();
           } catch (e) {
             done(e);
@@ -119,7 +124,7 @@ describe("openccu-loom-program get mode", function () {
     );
   });
 
-  it("errors and emits nothing when the program id is unknown", function (done) {
+  it("errors and emits nothing when the program id is unknown (404)", function (done) {
     const port = backend.address().port;
     helper.load(
       [serverNode, programNode],
@@ -135,10 +140,7 @@ describe("openccu-loom-program get mode", function () {
         n1.error = function (err, msg) {
           try {
             const text = err && err.message ? err.message : String(err);
-            assert.ok(
-              /program not found: 999/.test(text),
-              `unexpected error: ${text}`
-            );
+            assert.ok(/404/.test(text), `unexpected error: ${text}`);
             assert.strictEqual(emitted, false, "must not emit a message");
             done();
           } catch (e) {
