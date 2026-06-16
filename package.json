@@ -28,7 +28,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "mocha": "^10.7.0",
+    "mocha": "^11.0.0",
     "node-red": "^4.1.9",
     "node-red-node-test-helper": "^0.3.4"
   },

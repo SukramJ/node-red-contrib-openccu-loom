@@ -26,15 +26,25 @@ module.exports = function (RED) {
         let res;
         if (mode === "list") {
           res = await client.get("/programs");
+          msg.payload = res.data ?? { status: res.status };
         } else if (mode === "get") {
-          res = await client.get(`/programs/${encodeURIComponent(id)}`);
+          // No single-program endpoint exists; the daemon only exposes
+          // GET /programs (list). Fetch the list and pick the entry by id.
+          res = await client.get("/programs");
+          const list = Array.isArray(res.data) ? res.data : [];
+          const program = list.find((p) => p && String(p.id) === String(id));
+          if (!program) {
+            done(new Error(`program not found: ${id}`));
+            return;
+          }
+          msg.payload = program;
         } else if (mode === "execute") {
           res = await client.post(`/programs/${encodeURIComponent(id)}/execute`);
+          msg.payload = res.data ?? { status: res.status };
         } else {
           done(new Error(`unknown mode: ${mode}`));
           return;
         }
-        msg.payload = res.data ?? { status: res.status };
         msg.statusCode = res.status;
         node.status({ fill: "green", shape: "dot", text: `OK (${res.status})` });
         send(msg);
