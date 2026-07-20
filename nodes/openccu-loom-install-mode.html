@@ -6,6 +6,7 @@
       name: { value: "" },
       server: { value: "", type: "openccu-loom-server", required: true },
       action: { value: "status" },
+      interface: { value: "" },
       seconds: { value: 60, validate: RED.validators.number() }
     },
     inputs: 1,
@@ -36,14 +37,30 @@
     </select>
   </div>
   <div class="form-row">
+    <label for="node-input-interface"><i class="fa fa-exchange"></i> Interface</label>
+    <input type="text" id="node-input-interface" placeholder="e.g. HmIP-RF" />
+  </div>
+  <div class="form-row">
     <label for="node-input-seconds"><i class="fa fa-clock-o"></i> <span data-i18n="openccu-loom-install-mode.label.seconds"></span></label>
     <input type="number" id="node-input-seconds" />
   </div>
 </script>
 
 <script type="text/html" data-help-name="openccu-loom-install-mode">
-  <p>Controls the CCU install (pairing) mode via
-  <code>GET/POST /install-mode</code>.</p>
-  <p><code>msg.action</code> (<code>status|start|stop</code>) and
-  <code>msg.seconds</code> override the node fields.</p>
+  <p>Controls the CCU install (pairing) mode per interface via
+  <code>GET/POST /install-mode/interfaces</code>.</p>
+  <ul>
+    <li><b>status</b> — lists the per-interface install-mode state
+    (<code>msg.interface</code> or the Interface field narrows the list).</li>
+    <li><b>start</b> / <b>stop</b> — activates or deactivates install mode
+    for one interface. The interface (node field or
+    <code>msg.interface</code>) is required; <code>msg.seconds</code> /
+    the Seconds field set the pairing-window duration (daemon default 60).</li>
+    <li><b>start</b> with <code>msg.address</code> — opens a
+    serial-targeted pairing window for that device instead
+    (<code>POST /devices/{addr}/install-mode</code>); no interface needed.</li>
+  </ul>
+  <p><code>msg.action</code>, <code>msg.interface</code>,
+  <code>msg.seconds</code> and <code>msg.address</code> override the node
+  fields.</p>
 </script>

@@ -1,0 +1,25 @@
+{
+  "openccu-loom-alarm": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Action",
+      "panel": "Panel/area id"
+    },
+    "action": {
+      "state": "State (all areas)",
+      "panels": "Panels",
+      "readiness": "Readiness",
+      "journal": "Journal",
+      "walktest_status": "Walk-test status",
+      "arm": "Arm",
+      "disarm": "Disarm",
+      "silence": "Silence",
+      "silence_all": "Silence all",
+      "acknowledge": "Acknowledge"
+    },
+    "tip": {
+      "args": "msg.panel/msg.area_id, msg.code, msg.mode and msg.args (wins) supply the command arguments."
+    }
+  }
+}

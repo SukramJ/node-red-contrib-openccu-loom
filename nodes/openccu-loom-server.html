@@ -57,7 +57,17 @@
           .done(function (data) {
             if (data.ok) {
               const v = (data.info && (data.info.version || data.info.build)) || data.status;
-              $result.text("OK — " + v).css("color", "#1c7c2e");
+              let text = "OK — " + v;
+              if (data.apiVersion) {
+                text += " · API " + data.apiVersion;
+                if (data.supported === false) {
+                  text += " (unsupported — this package expects major " + data.supportedMajor + ")";
+                }
+              }
+              if (Array.isArray(data.capabilities) && data.capabilities.length > 0) {
+                text += " · " + data.capabilities.join(", ");
+              }
+              $result.text(text).css("color", data.supported === false ? "#b71c1c" : "#1c7c2e");
             } else {
               $result.text(RED._("openccu-loom-server.label.error") + ": " + (data.error || "unknown"))
                 .css("color", "#b71c1c");

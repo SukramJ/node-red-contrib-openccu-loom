@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-openccu-loom",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Node-RED nodes for the openccu-loom daemon (Homematic / HomematicIP via REST + WebSocket).",
   "keywords": [
     "node-red",
@@ -50,7 +50,8 @@
       "openccu-loom-health": "nodes/openccu-loom-health.js",
       "openccu-loom-centrals": "nodes/openccu-loom-centrals.js",
       "openccu-loom-ws-call": "nodes/openccu-loom-ws-call.js",
-      "openccu-loom-api": "nodes/openccu-loom-api.js"
+      "openccu-loom-api": "nodes/openccu-loom-api.js",
+      "openccu-loom-alarm": "nodes/openccu-loom-alarm.js"
     },
     "plugins": {},
     "examples": "examples"

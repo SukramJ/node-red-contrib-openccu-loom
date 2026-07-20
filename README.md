@@ -5,7 +5,7 @@ daemon — the bridge to Homematic / HomematicIP CCUs (CCU2, CCU3, RaspberryMati
 via the daemon's REST API (`/api/v1`) and its bidirectional WebSocket
 (`/api/v1/events`).
 
-> Compatible with **Node-RED ≥ 4.1.9** and **Node.js ≥ 18.5**.
+> Compatible with **Node-RED ≥ 4.1.9** and **Node.js ≥ 22.9**.
 
 ## Installation
 
@@ -24,7 +24,7 @@ All nodes reference an `openccu-loom-server` config node:
 | Field | Meaning |
 |---|---|
 | Host | Hostname / IP of the openccu-loom daemon |
-| Port | Defaults to 8080 (REST + WebSocket). Adjust for TLS. |
+| Port | Defaults to 8119 (REST + WebSocket + Config UI SPA). Adjust for TLS. |
 | TLS | Use HTTPS + WSS instead of HTTP + WS |
 | Skip certificate check | Accept self-signed certificates (test setups only) |
 | Auth | `HTTP Basic`, `Bearer Token`, `Session cookie + CSRF`, or `None` |
@@ -35,9 +35,28 @@ All nodes reference an `openccu-loom-server` config node:
 The dialog includes a **Test connection** button that performs a `GET /info`
 against the entered host.
 
-> The daemon binds REST + WebSocket on `:8080` and the bootstrap UI on `:8081`
-> by default; this contrib talks to `:8080`. If you reverse-proxy through TLS,
-> set the port accordingly.
+> The daemon binds REST + WebSocket + the Config UI SPA on a single port,
+> `:8119`, by default — the old `:8080`/`:8081` split is gone. This contrib
+> talks to that one port. If you reverse-proxy through TLS, set the port
+> accordingly.
+>
+> HTTP calls go through Node's built-in `fetch` (via `undici`); the previous
+> `axios` dependency has been removed. Every response is normalised to
+> `{status, statusText, data, headers}`.
+
+### API version handshake
+
+At deploy (and on demand, cached for 60 s), the server config node performs
+`GET /info` and records the daemon's `api_version` and `capabilities`. This
+package supports API major `2`; a daemon reporting a different major gets a
+one-time `node.warn`, but calls still go through — a major mismatch is
+advisory, not a hard stop. Command nodes that depend on an optional daemon
+feature call the config node's async `hasCapability("token")` (e.g.
+`alarm.v1` for the `alarm` node) to show a yellow advisory status at deploy
+without blocking the flow; an older daemon still receives the call and
+surfaces its own error at call time. The **Test connection** button reports
+the same `apiVersion` / `capabilities` / `supported` fields directly in the
+editor.
 
 ### OIDC
 
@@ -63,8 +82,13 @@ becomes `msg.payload`; `msg.topic`, `msg.eventType`, `msg.kind`
   buffered events on reconnect. If the buffer ceiling (1024 frames) is exceeded
   the daemon answers with `replay_lost`; the node emits a control message
   `{control: "replay_lost", oldest_seq: M}` — pipe it into the `snapshot` node to resync.
-* Reconnects with exponential backoff (1 s … 30 s); on HTTP 401/403 during the
-  handshake the loop is halted.
+* Subscribe/unsubscribe round-trips are acknowledged by the daemon
+  (`{op:"subscribed"|"unsubscribed"}`); the node surfaces the ack as its
+  status text (e.g. `subscribed (3)`) rather than emitting it as a message.
+* Reconnects with exponential backoff (1 s … 30 s); on HTTP 401/403 during
+  the handshake, reconnects continue at a slower fixed floor (60 s) instead
+  of halting, so a rotated token or renewed session recovers without a
+  redeploy.
 
 ### `ws call` (WebSocket RPC)
 
@@ -74,6 +98,27 @@ the shared connection of the configured server. The frame is
 by id. Common targets: `ccu.get_signal_quality`, `paramset.form_schema`,
 `config.session.open/save/discard/undo/redo`, `backup.trigger`,
 `matter.commissioning_window_opened`.
+
+### `alarm` (WebSocket RPC)
+
+Dispatches an alarm-panel command (`alarm_panel.*` in `assets/wsapi.json`)
+over the same shared WS connection as `events` and `ws call`. `msg.action`
+selects the command (`state` default, `panels`, `readiness`, `journal`,
+`walktest_status`, `arm`, `disarm`, `silence`, `silence_all`,
+`acknowledge`); `msg.panel`/`msg.area_id` (or the node's configured panel)
+feed the `area_id` argument, and `msg.mode`, `msg.code`, `msg.force`,
+`msg.skip_delay`, `msg.bypass`, `msg.class`, `msg.from`, `msg.to`,
+`msg.limit` fill the remaining per-command arguments; `msg.args` wins
+key-by-key over all of that. Distinct from the `messages` node, which reads
+the CCU's own alarm/service message queue over REST.
+
+At deploy the node checks the `alarm.v1` capability against the server's
+`GET /info` response and shows a yellow advisory status if it is missing —
+calls still go through against an older daemon, which rejects them at call
+time instead. Alarm state changes (`alarm.state_changed`, `alarm.triggered`,
+`alarm.countdown`, `alarm.notification`, `alarm.walktest_progress`, …)
+arrive as WebSocket broadcasts, not as replies to this node — subscribe to
+topic `alarm.panel` with an `events` node instead.
 
 ### `set value`
 
@@ -111,7 +156,12 @@ device, firmware update, delete.
 
 ### `install mode`
 
-Activate / deactivate / query the CCU install (pairing) mode.
+Per-interface install (pairing) mode: `status` reads
+`GET /install-mode/interfaces` (optionally narrowed to `msg.interface`/the
+configured interface); `start`/`stop` post `{interface, active, seconds?}`
+to the same path. Passing `msg.address` on `start` instead opens a serial,
+device-targeted pairing window via `POST /devices/{addr}/install-mode`
+(`msg.seconds` sets the duration).
 
 ### `interfaces`
 
@@ -128,7 +178,8 @@ after a `replay_lost` control frame from the events node.
 
 ### `health`
 
-Diagnostics: `/info`, `/health`, `/config`, `/config/effective`, `/config/schema`.
+Diagnostics: `/info`, `/health`, `/config`, `/config/effective`, `/config/schema`,
+`/system/ccu` (`msg.scope = "ccu"` — per-central readiness/metadata).
 
 ### `centrals`
 
@@ -143,12 +194,13 @@ Generic REST call against the openccu-loom API. Path is relative to
 
 ## Examples
 
-Four importable example flows ship under `examples/`:
+Five importable example flows ship under `examples/`:
 
 - `01-event-stream.json` — subscribe to the event stream, auto-resync on `replay_lost`.
 - `02-set-value.json` — periodically write a thermostat set point with Idempotency-Key.
 - `03-sysvar-and-program.json` — set a sysvar, then trigger a program.
 - `04-ws-call.json` — dispatch a WS-RPC (`ccu.get_signal_quality`).
+- `05-alarm-panel.json` — poll every alarm area's state on a schedule.
 
 ## Localisation
 
@@ -173,3 +225,10 @@ npm link node-red-contrib-openccu-loom
 ## Licence
 
 MIT — see [LICENSE](./LICENSE).
+
+## Known limitations
+
+- The HTTP client uses the WHATWG `fetch` implementation (undici). Its
+  standard bad-port blocklist refuses a handful of ports historically
+  claimed by other protocols (e.g. 6667, 6000). Run the daemon on a
+  normal port — the default `8119` is unaffected.
