@@ -4,7 +4,7 @@
     defaults: {
       name: { value: "" },
       host: { value: "127.0.0.1", required: true },
-      port: { value: 8080, required: true, validate: RED.validators.number() },
+      port: { value: 8119, required: true, validate: RED.validators.number() },
       tls: { value: false },
       insecureTLS: { value: false },
       authMethod: { value: "basic" },
@@ -128,7 +128,7 @@
 
 <script type="text/html" data-help-name="openccu-loom-server">
   <p>Connection settings for an <b>openccu-loom</b> daemon (REST + WebSocket).</p>
-  <p>The base URL is <code>{scheme}://{host}:{port}/api/v1</code>. Default port is 8080
+  <p>The base URL is <code>{scheme}://{host}:{port}/api/v1</code>. Default port is 8119
   (HTTP API). When TLS is enabled, HTTPS and WSS are used instead.</p>
   <p><b>Authentication:</b></p>
   <ul>

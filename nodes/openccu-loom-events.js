@@ -24,6 +24,13 @@ module.exports = function (RED) {
 
     const offEvent = hub.onEvent((frame) => {
       if (frame.__control) {
+        // Subscription ACKs feed the node status instead of the flow:
+        // they confirm the round trip, they are not events.
+        if (frame.op === "subscribed" || frame.op === "unsubscribed") {
+          const count = Array.isArray(frame.topics) ? frame.topics.length : 0;
+          node.status({ fill: "green", shape: "dot", text: `${frame.op} (${count})` });
+          return;
+        }
         const ctrl = { control: frame.op };
         if (frame.seq != null) ctrl.seq = frame.seq;
         if (frame.oldest_seq != null) ctrl.oldest_seq = frame.oldest_seq;
