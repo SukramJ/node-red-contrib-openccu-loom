@@ -4,7 +4,7 @@
     defaults: {
       name: { value: "" },
       host: { value: "127.0.0.1", required: true },
-      port: { value: 8080, required: true, validate: RED.validators.number() },
+      port: { value: 8119, required: true, validate: RED.validators.number() },
       tls: { value: false },
       insecureTLS: { value: false },
       authMethod: { value: "basic" },
@@ -57,7 +57,17 @@
           .done(function (data) {
             if (data.ok) {
               const v = (data.info && (data.info.version || data.info.build)) || data.status;
-              $result.text("OK — " + v).css("color", "#1c7c2e");
+              let text = "OK — " + v;
+              if (data.apiVersion) {
+                text += " · API " + data.apiVersion;
+                if (data.supported === false) {
+                  text += " (unsupported — this package expects major " + data.supportedMajor + ")";
+                }
+              }
+              if (Array.isArray(data.capabilities) && data.capabilities.length > 0) {
+                text += " · " + data.capabilities.join(", ");
+              }
+              $result.text(text).css("color", data.supported === false ? "#b71c1c" : "#1c7c2e");
             } else {
               $result.text(RED._("openccu-loom-server.label.error") + ": " + (data.error || "unknown"))
                 .css("color", "#b71c1c");
@@ -128,7 +138,7 @@
 
 <script type="text/html" data-help-name="openccu-loom-server">
   <p>Connection settings for an <b>openccu-loom</b> daemon (REST + WebSocket).</p>
-  <p>The base URL is <code>{scheme}://{host}:{port}/api/v1</code>. Default port is 8080
+  <p>The base URL is <code>{scheme}://{host}:{port}/api/v1</code>. Default port is 8119
   (HTTP API). When TLS is enabled, HTTPS and WSS are used instead.</p>
   <p><b>Authentication:</b></p>
   <ul>

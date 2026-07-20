@@ -16,7 +16,8 @@ module.exports = function (RED) {
     node.on("input", async (msg, send, done) => {
       const kind = msg.kind || config.kind || "alarm";
       const action = msg.action || config.action || "list";
-      const id = msg.id || config.id;
+      // config.id would be the flow-node id, never a message id.
+      const id = msg.id;
       const base = kind === "service" ? "/service-messages" : "/alarm-messages";
 
       node.status({ fill: "yellow", shape: "ring", text: `${kind} ${action}` });

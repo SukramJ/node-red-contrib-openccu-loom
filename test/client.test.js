@@ -196,12 +196,12 @@ describe("OpenccuLoomClient", function () {
     });
   });
 
-  it("defaults to port 8080", function () {
+  it("defaults to the daemon port 8119", function () {
     const client = new OpenccuLoomClient({
       host: "127.0.0.1",
       tls: false,
       credentials: {},
     });
-    assert.ok(client.axios.defaults.baseURL.includes(":8080"));
+    assert.ok(client.baseURL.includes(":8119"));
   });
 });

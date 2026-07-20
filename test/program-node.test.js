@@ -51,7 +51,9 @@ describe("openccu-loom-program get mode", function () {
   beforeEach(function (done) {
     requestedUrls = [];
     startBackend((req, res) => {
-      requestedUrls.push(req.url);
+      // The server config node's deploy handshake (GET /info) is
+      // background noise for these assertions.
+      if (req.url !== "/api/v1/info") requestedUrls.push(req.url);
       const m = req.url.match(/^\/api\/v1\/programs\/([^/]+)$/);
       if (m) {
         const program = PROGRAMS[decodeURIComponent(m[1])];

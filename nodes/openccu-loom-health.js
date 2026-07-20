@@ -8,6 +8,7 @@ const PATHS = {
   config: "/config",
   "config-effective": "/config/effective",
   "config-schema": "/config/schema",
+  ccu: "/system/ccu",
 };
 
 module.exports = function (RED) {
