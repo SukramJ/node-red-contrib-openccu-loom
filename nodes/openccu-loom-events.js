@@ -24,6 +24,15 @@ module.exports = function (RED) {
 
     const offEvent = hub.onEvent((frame) => {
       if (frame.__control) {
+        // Subscription ACKs feed the node status instead of the flow:
+        // they confirm the round trip, they are not events.
+        if (frame.op === "subscribed" || frame.op === "unsubscribed") {
+          // ACKs carry the hub-wide topic union; show this node's own
+          // registered set instead of another node's numbers.
+          const own = (hub.subscriptions.get(node.id) || []).length;
+          node.status({ fill: "green", shape: "dot", text: `subscribed (${own} topics)` });
+          return;
+        }
         const ctrl = { control: frame.op };
         if (frame.seq != null) ctrl.seq = frame.seq;
         if (frame.oldest_seq != null) ctrl.oldest_seq = frame.oldest_seq;

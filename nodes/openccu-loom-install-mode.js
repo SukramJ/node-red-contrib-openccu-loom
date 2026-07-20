@@ -15,21 +15,33 @@ module.exports = function (RED) {
 
     node.on("input", async (msg, send, done) => {
       const action = msg.action || config.action || "status";
-      const seconds =
-        msg.seconds != null ? Number(msg.seconds) : Number(config.seconds || 60);
+      const iface = msg.interface || config.interface || "";
+      const address = msg.address || "";
+      const seconds = msg.seconds != null ? Number(msg.seconds) : Number(config.seconds || 0);
 
       node.status({ fill: "yellow", shape: "ring", text: action });
       try {
         let res;
         if (action === "status") {
-          res = await client.get("/install-mode");
-        } else if (action === "start") {
-          res = await client.post("/install-mode", {
-            active: true,
-            seconds: seconds > 0 ? seconds : 60,
-          });
-        } else if (action === "stop") {
-          res = await client.post("/install-mode", { active: false });
+          // Per-interface install-mode state; optionally narrowed to
+          // one interface for convenience.
+          res = await client.get("/install-mode/interfaces");
+          if (iface && Array.isArray(res.data)) {
+            res = { ...res, data: res.data.filter((e) => e && e.interface === iface) };
+          }
+        } else if (action === "start" && address) {
+          // Serial-targeted pairing window bound to one device address.
+          const body = {};
+          if (seconds > 0) body.seconds = seconds;
+          res = await client.post(`/devices/${encodeURIComponent(address)}/install-mode`, body);
+        } else if (action === "start" || action === "stop") {
+          if (!iface) {
+            done(new Error("interface is required (config or msg.interface); msg.address opens a device-targeted window instead"));
+            return;
+          }
+          const body = { interface: iface, active: action === "start" };
+          if (action === "start" && seconds > 0) body.seconds = seconds;
+          res = await client.post("/install-mode/interfaces", body);
         } else {
           done(new Error(`unknown action: ${action}`));
           return;

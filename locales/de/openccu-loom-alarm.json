@@ -1,0 +1,25 @@
+{
+  "openccu-loom-alarm": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Aktion",
+      "panel": "Panel-/Bereichs-ID"
+    },
+    "action": {
+      "state": "Status (alle Bereiche)",
+      "panels": "Panels",
+      "readiness": "Scharfschaltbereitschaft",
+      "journal": "Journal",
+      "walktest_status": "Walktest-Status",
+      "arm": "Scharfschalten",
+      "disarm": "Unscharfschalten",
+      "silence": "Stummschalten",
+      "silence_all": "Alle stummschalten",
+      "acknowledge": "Quittieren"
+    },
+    "tip": {
+      "args": "msg.panel/msg.area_id, msg.code, msg.mode und msg.args (gewinnt) liefern die Befehlsargumente."
+    }
+  }
+}

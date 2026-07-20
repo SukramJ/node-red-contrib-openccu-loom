@@ -1,0 +1,59 @@
+[
+  {
+    "id": "ex5.tab",
+    "type": "tab",
+    "label": "openccu-loom – Alarm Panel",
+    "disabled": false,
+    "info": "Fragt den Status aller Alarmbereiche über die Alarm-Panel-WS-Kommandos ab."
+  },
+  {
+    "id": "ex5.server",
+    "type": "openccu-loom-server",
+    "name": "openccu-loom localhost",
+    "host": "127.0.0.1",
+    "port": 8119,
+    "tls": false,
+    "insecureTLS": false,
+    "authMethod": "basic",
+    "timeout": 10000
+  },
+  {
+    "id": "ex5.inject",
+    "type": "inject",
+    "z": "ex5.tab",
+    "name": "every 30s",
+    "props": [{ "p": "payload" }],
+    "repeat": "30",
+    "once": true,
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 120,
+    "wires": [["ex5.alarm"]]
+  },
+  {
+    "id": "ex5.alarm",
+    "type": "openccu-loom-alarm",
+    "z": "ex5.tab",
+    "name": "alarm state",
+    "server": "ex5.server",
+    "action": "state",
+    "panel": "",
+    "x": 400,
+    "y": 120,
+    "wires": [["ex5.debug"]]
+  },
+  {
+    "id": "ex5.debug",
+    "type": "debug",
+    "z": "ex5.tab",
+    "name": "Alarm-Status",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "complete": "true",
+    "x": 660,
+    "y": 120,
+    "wires": []
+  }
+]
