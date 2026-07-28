@@ -1,0 +1,58 @@
+{
+  "openccu-loom-alarm-admin": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Action",
+      "zoneId": "Zone id",
+      "codeId": "Code id",
+      "outputId": "Output id",
+      "class": "Output class",
+      "mode": "Arm mode",
+      "code": "Code (PIN)",
+      "opticalOnly": "Optical only"
+    },
+    "group": {
+      "status": "Status",
+      "zones": "Zones",
+      "enrolment": "Sensors & outputs",
+      "codes": "Codes",
+      "walktest": "Walk test",
+      "operate": "Operate"
+    },
+    "action": {
+      "state": "State (all zones)",
+      "panels": "Panels",
+      "journal": "Journal",
+      "readiness": "Readiness",
+      "zones": "List zones",
+      "zone": "Get zone",
+      "zone-create": "Create zone",
+      "zone-update": "Replace zone",
+      "zone-delete": "Delete zone",
+      "sensors": "Get sensors",
+      "sensors-set": "Replace sensors",
+      "outputs": "Get outputs",
+      "outputs-set": "Replace outputs",
+      "output-candidates": "Output candidates",
+      "remote-key-candidates": "Remote-key candidates",
+      "output-test": "Test output",
+      "codes": "List codes",
+      "code": "Get code",
+      "code-create": "Create code",
+      "code-update": "Replace code",
+      "code-delete": "Delete code",
+      "walktest": "Walk-test status",
+      "walktest-start": "Start walk test",
+      "walktest-stop": "Stop walk test",
+      "arm": "Arm",
+      "disarm": "Disarm",
+      "silence": "Silence",
+      "acknowledge": "Acknowledge",
+      "silence-all": "Silence all"
+    },
+    "tip": {
+      "payload": "msg.payload supplies the write bodies (zone, code) resp. the complete list for sensors-set/outputs-set; msg.zoneId, msg.codeId, msg.outputId and msg.class override the fields."
+    }
+  }
+}

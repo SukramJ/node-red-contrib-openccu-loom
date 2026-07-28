@@ -4,14 +4,32 @@
       "name": "Name",
       "server": "Server",
       "action": "Action",
-      "address": "Address"
+      "address": "Address",
+      "channel": "Channel",
+      "central": "Central",
+      "reset": "Factory reset on delete",
+      "force": "Force delete"
     },
     "action": {
       "batch": "Batch write",
       "refresh": "Refresh registry",
       "accept": "Accept inbox device",
+      "rename": "Rename / assign device",
       "firmware": "Firmware update",
-      "delete": "Delete device"
+      "firmware-download": "Download firmware",
+      "delete": "Delete device",
+      "test": "Device test",
+      "restore-config": "Re-transmit configuration",
+      "replace-candidates": "Replace candidates",
+      "replace": "Replace device",
+      "channel-update": "Rename / assign channel",
+      "channel-flags": "Read channel flags",
+      "channel-flags-set": "Set channel flags",
+      "team-candidates": "Team candidates",
+      "team-set": "Assign team"
+    },
+    "tip": {
+      "fields": "msg.name, msg.rooms, msg.functions, msg.includeChannels, msg.oldAddress, msg.url, msg.team, msg.hidden, msg.locked fill the request per action; an object in msg.payload is sent as the body verbatim."
     }
   }
 }

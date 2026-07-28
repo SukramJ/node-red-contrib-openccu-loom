@@ -4,10 +4,10 @@
       "name": "Name",
       "server": "Server",
       "action": "Aktion",
-      "panel": "Panel-/Bereichs-ID"
+      "panel": "Panel-/Zonen-ID"
     },
     "action": {
-      "state": "Status (alle Bereiche)",
+      "state": "Status (alle Zonen)",
       "panels": "Panels",
       "readiness": "Scharfschaltbereitschaft",
       "journal": "Journal",
@@ -19,7 +19,7 @@
       "acknowledge": "Quittieren"
     },
     "tip": {
-      "args": "msg.panel/msg.area_id, msg.code, msg.mode und msg.args (gewinnt) liefern die Befehlsargumente."
+      "args": "msg.zone_id/msg.panel, msg.code, msg.mode und msg.args (gewinnt) liefern die Befehlsargumente."
     }
   }
 }

@@ -34,6 +34,17 @@ module.exports = function (RED) {
           const body = {};
           if (seconds > 0) body.seconds = seconds;
           res = await client.post(`/devices/${encodeURIComponent(address)}/install-mode`, body);
+        } else if (action === "search") {
+          // Wired buses (BidCos-Wired) are scanned instead of opening a
+          // pairing window; the reply counts the devices found.
+          if (!iface) {
+            done(new Error("interface is required for search (config or msg.interface)"));
+            return;
+          }
+          const body = { interface: iface };
+          const central = msg.central || config.central;
+          if (central) body.central = central;
+          res = await client.post("/install-mode/search", body);
         } else if (action === "start" || action === "stop") {
           if (!iface) {
             done(new Error("interface is required (config or msg.interface); msg.address opens a device-targeted window instead"));

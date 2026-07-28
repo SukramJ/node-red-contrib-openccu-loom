@@ -1,0 +1,18 @@
+{
+  "openccu-loom-recording": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Aktion",
+      "central": "Zentrale",
+      "interfaceId": "Interface",
+      "channel": "Kanal",
+      "parameter": "Parameter",
+      "record": "Aufzeichnen"
+    },
+    "action": {
+      "get": "Status lesen",
+      "set": "Status setzen"
+    }
+  }
+}

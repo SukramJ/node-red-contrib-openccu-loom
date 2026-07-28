@@ -4,10 +4,10 @@
       "name": "Name",
       "server": "Server",
       "action": "Action",
-      "panel": "Panel/area id"
+      "panel": "Panel/zone id"
     },
     "action": {
-      "state": "State (all areas)",
+      "state": "State (all zones)",
       "panels": "Panels",
       "readiness": "Readiness",
       "journal": "Journal",
@@ -19,7 +19,7 @@
       "acknowledge": "Acknowledge"
     },
     "tip": {
-      "args": "msg.panel/msg.area_id, msg.code, msg.mode and msg.args (wins) supply the command arguments."
+      "args": "msg.zone_id/msg.panel, msg.code, msg.mode and msg.args (wins) supply the command arguments."
     }
   }
 }

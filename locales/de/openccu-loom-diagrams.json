@@ -1,0 +1,22 @@
+{
+  "openccu-loom-diagrams": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Aktion",
+      "diagramId": "Diagramm-ID",
+      "diagramName": "Diagrammname",
+      "visibility": "Sichtbarkeit"
+    },
+    "action": {
+      "list": "Auflisten",
+      "get": "Lesen",
+      "create": "Anlegen",
+      "update": "Aktualisieren",
+      "delete": "Löschen"
+    },
+    "tip": {
+      "config": "msg.config enthält die Diagrammdefinition; ein Objekt in msg.payload wird bei create/update unverändert als Body gesendet."
+    }
+  }
+}

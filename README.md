@@ -48,7 +48,7 @@ against the entered host.
 
 At deploy (and on demand, cached for 60 s), the server config node performs
 `GET /info` and records the daemon's `api_version` and `capabilities`. This
-package supports API major `2`; a daemon reporting a different major gets a
+package supports API major `3`; a daemon reporting a different major gets a
 one-time `node.warn`, but calls still go through — a major mismatch is
 advisory, not a hard stop. Command nodes that depend on an optional daemon
 feature call the config node's async `hasCapability("token")` (e.g.
@@ -92,7 +92,7 @@ becomes `msg.payload`; `msg.topic`, `msg.eventType`, `msg.kind`
 
 ### `ws call` (WebSocket RPC)
 
-Dispatches a WebSocket command (`assets/wsapi.json`, currently 95 commands) over
+Dispatches a WebSocket command (`assets/wsapi.json`, currently 168 commands) over
 the shared connection of the configured server. The frame is
 `{op:"call", id:<auto>, command, args}` and the matching `result` is correlated
 by id. Common targets: `ccu.get_signal_quality`, `paramset.form_schema`,
@@ -105,8 +105,9 @@ Dispatches an alarm-panel command (`alarm_panel.*` in `assets/wsapi.json`)
 over the same shared WS connection as `events` and `ws call`. `msg.action`
 selects the command (`state` default, `panels`, `readiness`, `journal`,
 `walktest_status`, `arm`, `disarm`, `silence`, `silence_all`,
-`acknowledge`); `msg.panel`/`msg.area_id` (or the node's configured panel)
-feed the `area_id` argument, and `msg.mode`, `msg.code`, `msg.force`,
+`acknowledge`); `msg.zone_id`/`msg.panel` (or the node's configured panel)
+feed the `zone_id` argument — `msg.area_id`, the pre-API-3.0.0 spelling, is
+still accepted as a deprecated alias — and `msg.mode`, `msg.code`, `msg.force`,
 `msg.skip_delay`, `msg.bypass`, `msg.class`, `msg.from`, `msg.to`,
 `msg.limit` fill the remaining per-command arguments; `msg.args` wins
 key-by-key over all of that. Distinct from the `messages` node, which reads
@@ -119,6 +120,28 @@ time instead. Alarm state changes (`alarm.state_changed`, `alarm.triggered`,
 `alarm.countdown`, `alarm.notification`, `alarm.walktest_progress`, …)
 arrive as WebSocket broadcasts, not as replies to this node — subscribe to
 topic `alarm.panel` with an `events` node instead.
+
+### `alarm admin` (REST)
+
+The alarm engine's REST surface (`/alarm/…`) — the configuration side the
+WebSocket does not expose, plus the operating verbs without a WS connection.
+Companion to the `alarm` node above; both are gated on the `alarm.v1`
+capability.
+
+* **Live status** — `state`, `panels`, `journal` (filters: `msg.zone`,
+  `msg.class`, `msg.from`, `msg.to`, `msg.limit`), `readiness`.
+* **Zones** — `zones`, `zone`, `zone-create`, `zone-update` (a replace: send
+  the complete object), `zone-delete`.
+* **Sensors, outputs, codes** — `sensors` / `sensors-set` and `outputs` /
+  `outputs-set` (the PUT replaces the whole enrolment set, so `msg.payload`
+  must be the full array; an empty one unenrols everything),
+  `output-candidates` (`msg.class` narrows by output class),
+  `remote-key-candidates`, `output-test` (`msg.opticalOnly`), and the code CRUD
+  `codes` / `code` / `code-create` / `code-update` / `code-delete`.
+* **Walk test** — `walktest-start`, `walktest-stop`, `walktest` (status). Only
+  reachable over REST; the WebSocket exposes the status alone.
+* **Operating** — `arm` (`msg.mode`, plus `msg.force`, `msg.skipDelay`,
+  `msg.bypass`, `msg.code`), `disarm`, `silence`, `acknowledge`, `silence-all`.
 
 ### `set value`
 
@@ -133,16 +156,27 @@ set `msg.idempotentReplay = true`.
 ### `paramset`
 
 Reads or writes a paramset atomically. `GET/PUT /devices/{addr}/paramsets/{VALUES|MASTER|LINK}`.
-Honours `msg.idempotencyKey`.
+Honours `msg.idempotencyKey`. Mode `determine`
+(`POST /devices/{addr}/channels/{no}/paramsets/{key}/determine`) reads a single
+parameter's live value straight from the device instead of the cached paramset
+and is channel-scoped (`msg.channel`, `msg.parameter`).
 
 ### `sysvar`
 
 Read, write, list, create, patch (metadata) or delete CCU system variables.
-`GET/PUT/POST/PATCH/DELETE /sysvars[/{name}]`.
+`GET/PUT/POST/PATCH/DELETE /sysvars[/{name}]`. `patch` now also accepts `name`
+(renames in place), `is_logged`, `is_visible`, `value_name_0`, `value_name_1`
+and `channel_address`. Mode `usage`
+(`GET /sysvars/{name}/usage`) lists the programs referencing a variable — worth
+checking before a rename or delete.
 
 ### `program`
 
-Execute, fetch details or list CCU programs.
+Execute, fetch details, list, activate/deactivate (`set-active` →
+`PATCH /programs/{id}`, `msg.active`) or delete CCU programs. `msg.includeInternal`
+overrides the central's `include_internal_programs` default when listing;
+`msg.checkConditions` makes `execute` evaluate the program's "if" condition
+first and report `executed: true|false`.
 
 ### `device`
 
@@ -151,8 +185,20 @@ Reads device, channel, and data-point information. Scope choices:
 
 ### `device admin`
 
-Administrative device operations: batch write, registry refresh, accept inbox
-device, firmware update, delete.
+Administrative device operations, selected via `msg.action`:
+
+* **Registry / values** — `batch` (`POST /devices/values:batch`), `refresh`.
+* **Pairing lifecycle** — `accept` (with optional first-time configuration:
+  `msg.name`, `msg.includeChannels`, `msg.rooms`, `msg.functions`), `rename`
+  (`PATCH /devices/{addr}` with the same fields), `delete` (`msg.reset`
+  factory-resets during removal, `msg.force` removes an unreachable device),
+  `replace-candidates`, `replace` (`msg.oldAddress`).
+* **Firmware / diagnostics** — `firmware`, `firmware-download`
+  (`POST /system/firmware/download` from `msg.url`), `test`
+  (`POST /devices/{addr}/test`), `restore-config`.
+* **Channels** — `channel-update` (rename, rooms, functions), `channel-flags` /
+  `channel-flags-set` (the operator overrides `hidden` and `locked`),
+  `team-candidates` / `team-set`.
 
 ### `install mode`
 
@@ -161,7 +207,9 @@ Per-interface install (pairing) mode: `status` reads
 configured interface); `start`/`stop` post `{interface, active, seconds?}`
 to the same path. Passing `msg.address` on `start` instead opens a serial,
 device-targeted pairing window via `POST /devices/{addr}/install-mode`
-(`msg.seconds` sets the duration).
+(`msg.seconds` sets the duration). `search` (`POST /install-mode/search`) scans
+a wired bus (BidCos-Wired) for new devices instead of opening a pairing window
+and reports how many were `found`.
 
 ### `interfaces`
 
@@ -169,7 +217,40 @@ List, get or reconnect southbound interfaces.
 
 ### `messages`
 
-List or acknowledge alarm / service messages.
+List or acknowledge the CCU's own alarm / service messages. Beyond `list` and
+`ack` (single message): `ack-all` acknowledges the whole queue and reports how
+many were `acknowledged`; on the service side `suppressed` lists the
+permanently suppressed messages and `unsuppress` clears one
+(`msg.channel` required, `msg.interface` / `msg.parameter` narrow it).
+
+### `groups`
+
+Administers the CCU's heating groups (`/groups`). Actions: `list`, `types`
+(assignable group types), `suitable-members` (the channels a group of
+`msg.typeId` may take), `create`, `update`, `delete`. `msg.members` supplies
+the member list; mutating calls require admin.
+
+### `diagrams`
+
+CRUD for the Config UI's saved diagram definitions (`/diagrams`). `list`
+returns the caller's own plus the shared ones; `msg.config` carries the
+definition, `msg.visibility` is `private|shared`.
+
+### `links`
+
+`list` — the global direct-link overview (`GET /links`, `msg.locale` steers the
+label language). `test` — `POST /devices/{addr}/links/test` activates the link
+paramset at the device so the actuator reacts once. Creating and removing links
+stays on the WebSocket (`central.create_links` / `central.remove_links` via the
+`ws call` node).
+
+### `recording`
+
+Reads and sets the per-data-point history recording state
+(`GET/PUT /history/recording`). Both actions address one data point via
+`msg.central`, `msg.interfaceId`, `msg.channel` and `msg.parameter`; `get`
+reports `{record, source}`, and `set` without `msg.record` clears the override
+and hands the data point back to the configured default.
 
 ### `snapshot`
 
@@ -184,7 +265,8 @@ Diagnostics: `/info`, `/health`, `/config`, `/config/effective`, `/config/schema
 ### `centrals`
 
 Multi-CCU registry CRUD (`/centrals`, `/centrals/{name}`). Mutating calls
-require admin role.
+require admin role. Action `reboot` (`POST /system/ccu/{central}/reboot`)
+reboots the CCU itself, not the daemon.
 
 ### `api`
 
@@ -200,7 +282,7 @@ Five importable example flows ship under `examples/`:
 - `02-set-value.json` — periodically write a thermostat set point with Idempotency-Key.
 - `03-sysvar-and-program.json` — set a sysvar, then trigger a program.
 - `04-ws-call.json` — dispatch a WS-RPC (`ccu.get_signal_quality`).
-- `05-alarm-panel.json` — poll every alarm area's state on a schedule.
+- `05-alarm-panel.json` — poll every alarm zone's state on a schedule.
 
 ## Localisation
 

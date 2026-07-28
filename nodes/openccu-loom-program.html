@@ -6,7 +6,11 @@
       name: { value: "" },
       server: { value: "", type: "openccu-loom-server", required: true },
       programId: { value: "" },
-      mode: { value: "execute" }
+      mode: { value: "execute" },
+      central: { value: "" },
+      active: { value: true },
+      includeInternal: { value: false },
+      checkConditions: { value: false }
     },
     inputs: 1,
     outputs: 1,
@@ -33,17 +37,55 @@
       <option value="execute" data-i18n="openccu-loom-program.mode.execute"></option>
       <option value="get" data-i18n="openccu-loom-program.mode.get"></option>
       <option value="list" data-i18n="openccu-loom-program.mode.list"></option>
+      <option value="set-active" data-i18n="openccu-loom-program.mode.set-active"></option>
+      <option value="delete" data-i18n="openccu-loom-program.mode.delete"></option>
     </select>
   </div>
   <div class="form-row">
     <label for="node-input-programId"><i class="fa fa-key"></i> <span data-i18n="openccu-loom-program.label.programId"></span></label>
     <input type="text" id="node-input-programId" />
   </div>
+  <div class="form-row">
+    <label for="node-input-central"><i class="fa fa-sitemap"></i> <span data-i18n="openccu-loom-program.label.central"></span></label>
+    <input type="text" id="node-input-central" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-active"><i class="fa fa-toggle-on"></i> <span data-i18n="openccu-loom-program.label.active"></span></label>
+    <input type="checkbox" id="node-input-active" style="width:auto; vertical-align:top" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-includeInternal"><i class="fa fa-eye"></i> <span data-i18n="openccu-loom-program.label.includeInternal"></span></label>
+    <input type="checkbox" id="node-input-includeInternal" style="width:auto; vertical-align:top" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-checkConditions"><i class="fa fa-question-circle"></i> <span data-i18n="openccu-loom-program.label.checkConditions"></span></label>
+    <input type="checkbox" id="node-input-checkConditions" style="width:auto; vertical-align:top" />
+  </div>
 </script>
 
 <script type="text/html" data-help-name="openccu-loom-program">
   <p>Executes a CCU program (<code>POST /programs/{id}/execute</code>),
-  reads details (<code>GET /programs/{id}</code>) or lists all programs
-  (<code>GET /programs</code>).</p>
-  <p><code>msg.programId</code> and <code>msg.mode</code> override the node fields.</p>
+  reads details (<code>GET /programs/{id}</code>), lists all programs
+  (<code>GET /programs</code>), toggles a program's active flag
+  (<code>PATCH /programs/{id}</code>) or deletes one
+  (<code>DELETE /programs/{id}</code>, admin).</p>
+
+  <h3>Inputs</h3>
+  <ul>
+    <li><code>msg.programId</code>, <code>msg.mode</code> — override the node fields.</li>
+    <li><code>msg.central</code> — the central to address; used by
+        <code>list</code> (filter) and <code>delete</code>. Omitted, the daemon
+        applies its own default.</li>
+    <li><code>msg.includeInternal</code> (<code>list</code>) — overrides the
+        central's <code>include_internal_programs</code> default, so internal
+        programs (<code>Tmp_*</code>, <code>prgEnergyCounter_*</code>) are listed
+        or hidden on demand. Unset, the daemon decides.</li>
+    <li><code>msg.active</code> (<code>set-active</code>) — the CCU's own
+        "program active" flag. An inactive program stays in the registry but no
+        longer runs on its own trigger; <code>execute</code> still works.</li>
+    <li><code>msg.checkConditions</code> (<code>execute</code>) — evaluates the
+        program's "if" condition first and runs it only when the condition
+        holds. The reply carries <code>executed: true|false</code>; an
+        unconditional run always reports <code>true</code>.</li>
+  </ul>
 </script>

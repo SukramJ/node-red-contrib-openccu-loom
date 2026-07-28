@@ -20,6 +20,7 @@ module.exports = function (RED) {
       const addr = msg.address || config.address;
       const key = String(msg.key || config.key || "VALUES").toUpperCase();
       const mode = msg.mode || config.mode || "read";
+      const channel = msg.channel != null && msg.channel !== "" ? msg.channel : config.channel;
       if (!addr) return done(new Error("address missing"));
       if (!KEYS.has(key)) return done(new Error(`paramset key must be VALUES|MASTER|LINK`));
 
@@ -35,6 +36,17 @@ module.exports = function (RED) {
           }
           const headers = mergeIdempotency(undefined, msg, node);
           res = await client.put(path, msg.payload, { headers });
+        } else if (mode === "determine") {
+          // Reads one parameter's live value straight from the device
+          // instead of the cached paramset — the CCU WebUI's "determine"
+          // button. Channel-scoped, unlike read/write.
+          if (channel == null || channel === "") return done(new Error("channel missing for determine"));
+          const parameter = msg.parameter || config.parameter;
+          if (!parameter) return done(new Error("msg.parameter missing for determine"));
+          res = await client.post(
+            `/devices/${encodeURIComponent(addr)}/channels/${encodeURIComponent(channel)}/paramsets/${encodeURIComponent(key)}/determine`,
+            { parameter }
+          );
         } else {
           return done(new Error(`unknown mode: ${mode}`));
         }

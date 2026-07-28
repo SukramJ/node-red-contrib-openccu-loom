@@ -19,6 +19,12 @@ const healthNode = require("../nodes/openccu-loom-health.js");
 const centralsNode = require("../nodes/openccu-loom-centrals.js");
 const wsCallNode = require("../nodes/openccu-loom-ws-call.js");
 const apiNode = require("../nodes/openccu-loom-api.js");
+const alarmNode = require("../nodes/openccu-loom-alarm.js");
+const alarmAdminNode = require("../nodes/openccu-loom-alarm-admin.js");
+const groupsNode = require("../nodes/openccu-loom-groups.js");
+const diagramsNode = require("../nodes/openccu-loom-diagrams.js");
+const linksNode = require("../nodes/openccu-loom-links.js");
+const recordingNode = require("../nodes/openccu-loom-recording.js");
 
 helper.init(require.resolve("node-red"));
 
@@ -97,6 +103,12 @@ describe("contrib loads", function () {
     [healthNode, "openccu-loom-health", { scope: "health" }],
     [centralsNode, "openccu-loom-centrals", { action: "list" }],
     [apiNode, "openccu-loom-api", { method: "GET", path: "/info" }],
+    [alarmNode, "openccu-loom-alarm", { action: "state" }],
+    [alarmAdminNode, "openccu-loom-alarm-admin", { action: "state" }],
+    [groupsNode, "openccu-loom-groups", { action: "list" }],
+    [diagramsNode, "openccu-loom-diagrams", { action: "list" }],
+    [linksNode, "openccu-loom-links", { action: "list" }],
+    [recordingNode, "openccu-loom-recording", { action: "get" }],
   ];
 
   for (const [mod, type, extra] of cases) {
@@ -104,6 +116,34 @@ describe("contrib loads", function () {
       loadCommandNode(mod, type, extra, done);
     });
   }
+
+  // Node-RED only ever loads what package.json lists, and only renders an
+  // editor pane / localised labels when the sibling files exist — a node
+  // added to nodes/ without those four is invisible in the palette.
+  it("every nodes/*.js is registered in package.json and has html + de/en locales", function () {
+    const fs = require("fs");
+    const path = require("path");
+    const root = path.join(__dirname, "..");
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    const registered = pkg["node-red"].nodes;
+    const problems = [];
+
+    for (const file of fs.readdirSync(path.join(root, "nodes"))) {
+      if (!file.endsWith(".js")) continue;
+      const type = file.replace(/\.js$/, "");
+      if (registered[type] !== `nodes/${file}`) {
+        problems.push(`package.json node-red.nodes is missing "${type}": "nodes/${file}"`);
+      }
+      for (const companion of [
+        path.join("nodes", `${type}.html`),
+        path.join("locales", "de", `${type}.json`),
+        path.join("locales", "en-US", `${type}.json`),
+      ]) {
+        if (!fs.existsSync(path.join(root, companion))) problems.push(`missing ${companion}`);
+      }
+    }
+    assert.deepStrictEqual(problems, [], problems.join("\n"));
+  });
 
   it("registers openccu-loom-events", function (done) {
     loadCommandNode(eventsNode, "openccu-loom-events", { topics: "" }, done);
