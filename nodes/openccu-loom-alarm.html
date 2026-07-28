@@ -44,7 +44,7 @@
   </div>
   <div class="form-row">
     <label for="node-input-panel"><i class="fa fa-shield"></i> <span data-i18n="openccu-loom-alarm.label.panel"></span></label>
-    <input type="text" id="node-input-panel" placeholder="area-1" />
+    <input type="text" id="node-input-panel" placeholder="zone-1" />
   </div>
   <div class="form-tips">
     <span data-i18n="openccu-loom-alarm.tip.args"></span>
@@ -59,9 +59,10 @@
   <h3>Inputs</h3>
   <ul>
     <li><code>msg.action</code> — overrides the configured action.</li>
-    <li><code>msg.panel</code> or <code>msg.area_id</code> — overrides the configured
-        panel/area id. Fed into the <code>area_id</code> argument of every
-        per-area command.</li>
+    <li><code>msg.zone_id</code> or <code>msg.panel</code> — overrides the configured
+        panel/zone id. Fed into the <code>zone_id</code> argument of every
+        per-zone command. <code>msg.area_id</code>, the spelling used before the
+        daemon's API 3.0.0, still works as a deprecated alias.</li>
     <li><code>msg.mode</code>, <code>msg.code</code>, <code>msg.force</code>,
         <code>msg.skip_delay</code>, <code>msg.bypass</code>, <code>msg.class</code>,
         <code>msg.from</code>, <code>msg.to</code>, <code>msg.limit</code> — populate
@@ -75,33 +76,33 @@
   <table>
     <tr><th>action</th><th>command</th><th>args</th></tr>
     <tr><td><code>state</code> (default)</td><td><code>alarm_panel.state</code></td>
-        <td>none — status of every alarm area: state, mode, bypassed sensors,
+        <td>none — status of every alarm zone: state, mode, bypassed sensors,
         active incident, countdown, per-mode readiness, walk-test-active flag.</td></tr>
     <tr><td><code>panels</code></td><td><code>alarm_panel.panels</code></td>
         <td>none — the alarm-control-panel entity projections (HA-state view,
         incl. the master panel).</td></tr>
     <tr><td><code>readiness</code></td><td><code>alarm_panel.readiness</code></td>
-        <td><code>area_id</code> — per-mode arm-readiness of one area.</td></tr>
+        <td><code>zone_id</code> — per-mode arm-readiness of one zone.</td></tr>
     <tr><td><code>journal</code></td><td><code>alarm_panel.journal</code></td>
-        <td><code>area_id?</code>, <code>class?</code>, <code>from?</code>,
+        <td><code>zone_id?</code>, <code>class?</code>, <code>from?</code>,
         <code>to?</code>, <code>limit?</code> — the alarm engine's event journal,
         newest first.</td></tr>
     <tr><td><code>walktest_status</code></td><td><code>alarm_panel.walktest_status</code></td>
-        <td><code>area_id</code> — live status of a walk-test session.</td></tr>
+        <td><code>zone_id</code> — live status of a walk-test session.</td></tr>
     <tr><td><code>arm</code></td><td><code>alarm_panel.arm</code></td>
-        <td><code>area_id</code>, <code>mode</code>, <code>force?</code>,
+        <td><code>zone_id</code>, <code>mode</code>, <code>force?</code>,
         <code>skip_delay?</code>, <code>bypass?</code>, <code>code?</code> —
         may return synchronously as <code>armed</code>, or <code>arming</code>
         while counting down the mode's exit delay.</td></tr>
     <tr><td><code>disarm</code></td><td><code>alarm_panel.disarm</code></td>
-        <td><code>area_id</code>, <code>code?</code></td></tr>
+        <td><code>zone_id</code>, <code>code?</code></td></tr>
     <tr><td><code>silence</code></td><td><code>alarm_panel.silence</code></td>
-        <td><code>area_id</code>, <code>code?</code> — silences the active
+        <td><code>zone_id</code>, <code>code?</code> — silences the active
         incident without disarming.</td></tr>
     <tr><td><code>silence_all</code></td><td><code>alarm_panel.silence_all</code></td>
-        <td>none — silences the active incident on every alarm area at once.</td></tr>
+        <td>none — silences the active incident on every alarm zone at once.</td></tr>
     <tr><td><code>acknowledge</code></td><td><code>alarm_panel.acknowledge</code></td>
-        <td><code>area_id</code>, <code>code?</code> — clears a finished incident.</td></tr>
+        <td><code>zone_id</code>, <code>code?</code> — clears a finished incident.</td></tr>
   </table>
 
   <h3>Outputs</h3>

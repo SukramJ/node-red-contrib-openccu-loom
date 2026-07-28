@@ -1,0 +1,88 @@
+<script type="text/javascript">
+  RED.nodes.registerType("openccu-loom-links", {
+    category: "openccu-loom",
+    color: "#A1C9F1",
+    defaults: {
+      name: { value: "" },
+      server: { value: "", type: "openccu-loom-server", required: true },
+      action: { value: "list" },
+      central: { value: "" },
+      locale: { value: "" },
+      address: { value: "" },
+      senderAddress: { value: "" },
+      receiverAddress: { value: "" },
+      longPress: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "font-awesome/fa-link",
+    label: function () {
+      return this.name || `links ${this.action}`;
+    },
+    paletteLabel: "links"
+  });
+</script>
+
+<script type="text/html" data-template-name="openccu-loom-links">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="openccu-loom-links.label.name"></span></label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-server"><i class="fa fa-server"></i> <span data-i18n="openccu-loom-links.label.server"></span></label>
+    <input type="text" id="node-input-server" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-links.label.action"></span></label>
+    <select id="node-input-action">
+      <option value="list" data-i18n="openccu-loom-links.action.list"></option>
+      <option value="test" data-i18n="openccu-loom-links.action.test"></option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-central"><i class="fa fa-sitemap"></i> <span data-i18n="openccu-loom-links.label.central"></span></label>
+    <input type="text" id="node-input-central" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-locale"><i class="fa fa-language"></i> <span data-i18n="openccu-loom-links.label.locale"></span></label>
+    <input type="text" id="node-input-locale" placeholder="de" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-address"><i class="fa fa-id-card-o"></i> <span data-i18n="openccu-loom-links.label.address"></span></label>
+    <input type="text" id="node-input-address" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-senderAddress"><i class="fa fa-sign-out"></i> <span data-i18n="openccu-loom-links.label.senderAddress"></span></label>
+    <input type="text" id="node-input-senderAddress" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-receiverAddress"><i class="fa fa-sign-in"></i> <span data-i18n="openccu-loom-links.label.receiverAddress"></span></label>
+    <input type="text" id="node-input-receiverAddress" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-longPress"><i class="fa fa-hand-pointer-o"></i> <span data-i18n="openccu-loom-links.label.longPress"></span></label>
+    <input type="checkbox" id="node-input-longPress" style="width:auto; vertical-align:top" />
+  </div>
+</script>
+
+<script type="text/html" data-help-name="openccu-loom-links">
+  <p>Reads and tests the CCU's direct links (device-to-device connections that
+  keep working without the CCU).</p>
+
+  <h3>Actions</h3>
+  <ul>
+    <li><b>list</b> — <code>GET /links</code>: the global direct-link overview
+      of the addressed central. <code>msg.locale</code> steers the language of
+      the human-readable channel labels in the reply.</li>
+    <li><b>test</b> — <code>POST /devices/{addr}/links/test</code> activates the
+      link paramset at the device so the actuator reacts once (the CCU WebUI's
+      link test). Needs <code>msg.address</code> (the device the test runs at),
+      <code>msg.senderAddress</code> and <code>msg.receiverAddress</code>;
+      <code>msg.longPress</code> tests the long-press variant. The daemon
+      answers 202 — the actuator reacts asynchronously.</li>
+  </ul>
+
+  <p>Creating and removing links is a WebSocket operation
+  (<code>central.create_links</code> / <code>central.remove_links</code>) —
+  use the <code>ws call</code> node for those.</p>
+</script>

@@ -4,7 +4,8 @@
       "name": "Name",
       "server": "Server",
       "mode": "Modus",
-      "sysvar": "Sysvar"
+      "sysvar": "Sysvar",
+      "central": "Zentrale"
     },
     "mode": {
       "read": "Lesen",
@@ -12,7 +13,8 @@
       "list": "Alle auflisten",
       "create": "Anlegen",
       "patch": "Metadaten patchen",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "usage": "Verwendung (Programme)"
     }
   }
 }

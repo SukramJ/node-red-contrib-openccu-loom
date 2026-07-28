@@ -106,7 +106,7 @@ describe("openccu-loom-alarm", function () {
     }).then((server) => {
       wss = server;
       const port = wss.address().port;
-      helper.load([serverNode, alarmNode], flow(port, { action: "readiness", panel: "area-1" }), function () {
+      helper.load([serverNode, alarmNode], flow(port, { action: "readiness", panel: "zone-1" }), function () {
         waitHubOpen("s1")
           .then(() => {
             const n1 = helper.getNode("n1");
@@ -114,7 +114,7 @@ describe("openccu-loom-alarm", function () {
             n2.on("input", (msg) => {
               try {
                 assert.strictEqual(seen.command, "alarm_panel.readiness");
-                assert.deepStrictEqual(seen.args, { area_id: "area-1" });
+                assert.deepStrictEqual(seen.args, { zone_id: "zone-1" });
                 assert.deepStrictEqual(msg.payload, { ready: true });
                 done();
               } catch (e) {
@@ -167,7 +167,7 @@ describe("openccu-loom-alarm", function () {
     }).then((server) => {
       wss = server;
       const port = wss.address().port;
-      helper.load([serverNode, alarmNode], flow(port, { action: "arm", panel: "area-1" }), function () {
+      helper.load([serverNode, alarmNode], flow(port, { action: "arm", panel: "zone-1" }), function () {
         waitHubOpen("s1")
           .then(() => {
             const n1 = helper.getNode("n1");
@@ -176,7 +176,7 @@ describe("openccu-loom-alarm", function () {
               try {
                 assert.strictEqual(seen.command, "alarm_panel.arm");
                 assert.deepStrictEqual(seen.args, {
-                  area_id: "area-9",
+                  zone_id: "zone-9",
                   mode: "home",
                   code: "1234",
                 });
@@ -189,8 +189,45 @@ describe("openccu-loom-alarm", function () {
             n1.receive({
               mode: "home",
               code: "1234",
-              args: { area_id: "area-9" },
+              args: { zone_id: "zone-9" },
             });
+          })
+          .catch(done);
+      });
+    });
+  });
+
+  // API 3.0.0 renamed the armable unit from "area" to "zone": the wire
+  // argument is `zone_id` now, but flows built against the previous
+  // release still set msg.area_id, so that spelling keeps feeding the
+  // renamed argument.
+  it("maps the deprecated msg.area_id onto the zone_id argument, with msg.zone_id winning", function (done) {
+    const seen = [];
+    startWsServer((socket, frame) => {
+      seen.push(frame);
+      socket.send(JSON.stringify({ op: "result", id: frame.id, data: { ready: true } }));
+    }).then((server) => {
+      wss = server;
+      const port = wss.address().port;
+      helper.load([serverNode, alarmNode], flow(port, { action: "readiness", panel: "zone-1" }), function () {
+        waitHubOpen("s1")
+          .then(() => {
+            const n1 = helper.getNode("n1");
+            const n2 = helper.getNode("n2");
+            let emitted = 0;
+            n2.on("input", () => {
+              emitted += 1;
+              if (emitted < 2) return;
+              try {
+                assert.deepStrictEqual(seen[0].args, { zone_id: "legacy-area" });
+                assert.deepStrictEqual(seen[1].args, { zone_id: "new-zone" });
+                done();
+              } catch (e) {
+                done(e);
+              }
+            });
+            n1.receive({ area_id: "legacy-area" });
+            n1.receive({ area_id: "legacy-area", zone_id: "new-zone" });
           })
           .catch(done);
       });
@@ -209,7 +246,7 @@ describe("openccu-loom-alarm", function () {
     }).then((server) => {
       wss = server;
       const port = wss.address().port;
-      helper.load([serverNode, alarmNode], flow(port, { action: "disarm", panel: "area-1" }), function () {
+      helper.load([serverNode, alarmNode], flow(port, { action: "disarm", panel: "zone-1" }), function () {
         waitHubOpen("s1")
           .then(() => {
             const n1 = helper.getNode("n1");

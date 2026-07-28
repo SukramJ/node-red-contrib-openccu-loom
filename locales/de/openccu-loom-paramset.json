@@ -6,11 +6,14 @@
       "address": "Adresse",
       "key": "Paramset",
       "mode": "Modus",
-      "idempotency": "Idempotency-Key"
+      "idempotency": "Idempotency-Key",
+      "channel": "Kanal",
+      "parameter": "Parameter"
     },
     "mode": {
       "read": "Lesen",
-      "write": "Schreiben"
+      "write": "Schreiben",
+      "determine": "Wert am Gerät ermitteln"
     }
   }
 }

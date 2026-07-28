@@ -4,12 +4,14 @@
       "name": "Name",
       "server": "Server",
       "action": "Aktion",
-      "seconds": "Dauer (s)"
+      "seconds": "Dauer (s)",
+      "central": "Zentrale"
     },
     "action": {
       "status": "Status abfragen",
       "start": "Aktivieren",
-      "stop": "Deaktivieren"
+      "stop": "Deaktivieren",
+      "search": "Bus durchsuchen (wired)"
     }
   }
 }

@@ -7,7 +7,8 @@
       server: { value: "", type: "openccu-loom-server", required: true },
       action: { value: "status" },
       interface: { value: "" },
-      seconds: { value: 60, validate: RED.validators.number() }
+      seconds: { value: 60, validate: RED.validators.number() },
+      central: { value: "" }
     },
     inputs: 1,
     outputs: 1,
@@ -34,7 +35,12 @@
       <option value="status" data-i18n="openccu-loom-install-mode.action.status"></option>
       <option value="start" data-i18n="openccu-loom-install-mode.action.start"></option>
       <option value="stop" data-i18n="openccu-loom-install-mode.action.stop"></option>
+      <option value="search" data-i18n="openccu-loom-install-mode.action.search"></option>
     </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-central"><i class="fa fa-sitemap"></i> <span data-i18n="openccu-loom-install-mode.label.central"></span></label>
+    <input type="text" id="node-input-central" />
   </div>
   <div class="form-row">
     <label for="node-input-interface"><i class="fa fa-exchange"></i> Interface</label>
@@ -59,6 +65,10 @@
     <li><b>start</b> with <code>msg.address</code> — opens a
     serial-targeted pairing window for that device instead
     (<code>POST /devices/{addr}/install-mode</code>); no interface needed.</li>
+    <li><b>search</b> — <code>POST /install-mode/search</code> scans a wired
+    bus (BidCos-Wired) for new devices instead of opening a pairing window.
+    The interface is required; the reply reports how many were
+    <code>found</code>.</li>
   </ul>
   <p><code>msg.action</code>, <code>msg.interface</code>,
   <code>msg.seconds</code> and <code>msg.address</code> override the node

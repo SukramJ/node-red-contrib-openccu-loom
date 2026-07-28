@@ -5,11 +5,18 @@
       "server": "Server",
       "kind": "Art",
       "action": "Aktion",
-      "id": "Message-ID"
+      "id": "Message-ID",
+      "central": "Zentrale",
+      "channel": "Kanal",
+      "interface": "Interface",
+      "parameter": "Parameter"
     },
     "action": {
       "list": "Auflisten",
-      "ack": "Quittieren"
+      "ack": "Quittieren",
+      "ack-all": "Alle quittieren",
+      "suppressed": "Unterdrückte anzeigen",
+      "unsuppress": "Unterdrückung aufheben"
     }
   }
 }

@@ -6,7 +6,8 @@
       name: { value: "" },
       server: { value: "", type: "openccu-loom-server", required: true },
       sysvar: { value: "" },
-      mode: { value: "read" }
+      mode: { value: "read" },
+      central: { value: "" }
     },
     inputs: 1,
     outputs: 1,
@@ -31,6 +32,7 @@
     <label for="node-input-mode"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-sysvar.label.mode"></span></label>
     <select id="node-input-mode">
       <option value="read" data-i18n="openccu-loom-sysvar.mode.read"></option>
+      <option value="usage" data-i18n="openccu-loom-sysvar.mode.usage"></option>
       <option value="write" data-i18n="openccu-loom-sysvar.mode.write"></option>
       <option value="list" data-i18n="openccu-loom-sysvar.mode.list"></option>
       <option value="create" data-i18n="openccu-loom-sysvar.mode.create"></option>
@@ -42,6 +44,10 @@
     <label for="node-input-sysvar"><i class="fa fa-key"></i> <span data-i18n="openccu-loom-sysvar.label.sysvar"></span></label>
     <input type="text" id="node-input-sysvar" placeholder="Presence" />
   </div>
+  <div class="form-row">
+    <label for="node-input-central"><i class="fa fa-sitemap"></i> <span data-i18n="openccu-loom-sysvar.label.central"></span></label>
+    <input type="text" id="node-input-central" />
+  </div>
 </script>
 
 <script type="text/html" data-help-name="openccu-loom-sysvar">
@@ -51,10 +57,21 @@
     <li><code>read</code> — <code>GET /sysvars/{name}</code></li>
     <li><code>write</code> — <code>PUT /sysvars/{name}</code>, body <code>{value: msg.payload}</code></li>
     <li><code>list</code> — <code>GET /sysvars</code></li>
-    <li><code>create</code> — <code>POST /sysvars</code>, body <code>msg.payload</code> (object)</li>
+    <li><code>create</code> — <code>POST /sysvars</code>, body <code>msg.payload</code>
+        (object). <code>name</code> and <code>value_type</code> are required;
+        <code>description</code>, <code>unit</code>, <code>min</code>,
+        <code>max</code>, <code>value_list</code>, <code>value_name_0</code>,
+        <code>value_name_1</code> and <code>channel_address</code> are optional</li>
     <li><code>patch</code> — <code>PATCH /sysvars/{name}</code> with the metadata fields
-        <code>description</code>, <code>unit</code>, <code>min</code>, <code>max</code>,
-        <code>value_list</code> in <code>msg.payload</code></li>
+        <code>name</code> (renames in place), <code>description</code>,
+        <code>unit</code>, <code>min</code>, <code>max</code>,
+        <code>value_list</code>, <code>value_name_0</code>,
+        <code>value_name_1</code>, <code>is_logged</code>, <code>is_visible</code>,
+        <code>channel_address</code> in <code>msg.payload</code>. Omitted fields
+        stay unchanged; the type cannot be changed</li>
     <li><code>delete</code> — <code>DELETE /sysvars/{name}</code></li>
+    <li><code>usage</code> — <code>GET /sysvars/{name}/usage</code>: the programs
+        referencing this variable, so it can be checked before a rename or
+        delete. <code>msg.central</code> narrows it to one central.</li>
   </ul>
 </script>

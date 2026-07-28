@@ -4,7 +4,7 @@
     "type": "tab",
     "label": "openccu-loom – Alarm Panel",
     "disabled": false,
-    "info": "Fragt den Status aller Alarmbereiche über die Alarm-Panel-WS-Kommandos ab."
+    "info": "Fragt den Status aller Alarmzonen über die Alarm-Panel-WS-Kommandos ab."
   },
   {
     "id": "ex5.server",

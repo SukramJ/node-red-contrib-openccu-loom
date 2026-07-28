@@ -4,12 +4,18 @@
       "name": "Name",
       "server": "Server",
       "mode": "Mode",
-      "programId": "Program ID"
+      "programId": "Program ID",
+      "central": "Central",
+      "includeInternal": "Include internal programs",
+      "checkConditions": "Check conditions",
+      "active": "Active flag"
     },
     "mode": {
       "execute": "Execute",
       "get": "Get details",
-      "list": "List"
+      "list": "List",
+      "delete": "Delete",
+      "set-active": "Set active flag"
     }
   }
 }
