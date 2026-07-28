@@ -304,6 +304,9 @@ cd ~/.node-red
 npm link node-red-contrib-openccu-loom
 ```
 
+AI-assisted contributions are welcome within the bounds of the
+[AI contribution policy](./AI_POLICY.md).
+
 ## Licence
 
 MIT — see [LICENSE](./LICENSE).
