@@ -4,14 +4,32 @@
       "name": "Name",
       "server": "Server",
       "action": "Aktion",
-      "address": "Adresse"
+      "address": "Adresse",
+      "channel": "Kanal",
+      "central": "Zentrale",
+      "reset": "Werksreset beim Löschen",
+      "force": "Löschen erzwingen"
     },
     "action": {
       "batch": "Batch-Write",
       "refresh": "Registry abgleichen",
       "accept": "Inbox-Gerät annehmen",
+      "rename": "Gerät umbenennen / zuordnen",
       "firmware": "Firmware-Update",
-      "delete": "Gerät löschen"
+      "firmware-download": "Firmware herunterladen",
+      "delete": "Gerät löschen",
+      "test": "Gerätetest",
+      "restore-config": "Konfiguration erneut senden",
+      "replace-candidates": "Austausch-Kandidaten",
+      "replace": "Gerät austauschen",
+      "channel-update": "Kanal umbenennen / zuordnen",
+      "channel-flags": "Kanal-Flags lesen",
+      "channel-flags-set": "Kanal-Flags setzen",
+      "team-candidates": "Team-Kandidaten",
+      "team-set": "Team zuweisen"
+    },
+    "tip": {
+      "fields": "msg.name, msg.rooms, msg.functions, msg.includeChannels, msg.oldAddress, msg.url, msg.team, msg.hidden, msg.locked füllen je nach Aktion den Request; ein Objekt in msg.payload wird unverändert als Body gesendet."
     }
   }
 }

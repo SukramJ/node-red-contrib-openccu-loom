@@ -23,19 +23,23 @@ const ALARM_COMMANDS = {
 };
 
 // The exact argument names each command accepts, taken verbatim from
-// the wsapi.json command_schemas for "alarm_panel.*". `area_id` is the
-// one argument every per-area action shares; msg.area_id, the shorter
+// the wsapi.json command_schemas for "alarm_panel.*". `zone_id` is the
+// one argument every per-zone action shares; msg.zone_id, the shorter
 // msg.panel alias, or the node's configured default panel feed it.
+// (API 3.0.0 renamed the armable unit from "area" to "zone"; msg.area_id
+// is still accepted as a deprecated alias, see ZONE_ARG.)
+const ZONE_ARG = "zone_id";
+
 const ARG_NAMES = {
-  "alarm_panel.arm": ["area_id", "mode", "force", "skip_delay", "bypass", "code"],
-  "alarm_panel.disarm": ["area_id", "code"],
-  "alarm_panel.silence": ["area_id", "code"],
+  "alarm_panel.arm": [ZONE_ARG, "mode", "force", "skip_delay", "bypass", "code"],
+  "alarm_panel.disarm": [ZONE_ARG, "code"],
+  "alarm_panel.silence": [ZONE_ARG, "code"],
   "alarm_panel.silence_all": [],
-  "alarm_panel.acknowledge": ["area_id", "code"],
+  "alarm_panel.acknowledge": [ZONE_ARG, "code"],
   "alarm_panel.state": [],
-  "alarm_panel.readiness": ["area_id"],
-  "alarm_panel.journal": ["area_id", "class", "from", "to", "limit"],
-  "alarm_panel.walktest_status": ["area_id"],
+  "alarm_panel.readiness": [ZONE_ARG],
+  "alarm_panel.journal": [ZONE_ARG, "class", "from", "to", "limit"],
+  "alarm_panel.walktest_status": [ZONE_ARG],
   "alarm_panel.panels": [],
 };
 
@@ -44,8 +48,18 @@ function buildArgs(command, config, msg) {
   const args = {};
   for (const name of names) {
     let value;
-    if (name === "area_id") {
-      value = msg.area_id != null ? msg.area_id : msg.panel != null ? msg.panel : config.panel;
+    if (name === ZONE_ARG) {
+      // msg.zone_id wins; msg.area_id is the pre-API-3.0.0 spelling kept
+      // working for existing flows; msg.panel is the short alias; the
+      // node's configured panel is the fallback.
+      value =
+        msg.zone_id != null
+          ? msg.zone_id
+          : msg.area_id != null
+            ? msg.area_id
+            : msg.panel != null
+              ? msg.panel
+              : config.panel;
     } else {
       value = msg[name];
     }

@@ -3,6 +3,82 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] - 2026-07-28
+
+Tracks the daemon's API 3.1.0 (openccu-loom 0.49.2).
+
+### Changed (breaking)
+- **Alarm: the armable unit is a "zone", not an "area"** — following the
+  daemon's deliberate API 3.0.0 rename. The `alarm` node now sends the
+  `zone_id` argument (was `area_id`) for `arm`, `disarm`, `silence`,
+  `acknowledge`, `readiness`, `journal` and `walktest_status`. The node's
+  configured **Panel/zone id** field and `msg.panel` are unchanged, so
+  existing flows keep working; `msg.zone_id` is the new explicit override
+  and `msg.area_id` still feeds `zone_id` as a deprecated alias. Flows that
+  set the argument through `msg.args` must switch the key from `area_id`
+  to `zone_id` themselves — `msg.args` is merged verbatim.
+- **Supported API major is now `3`** (`SUPPORTED_API_MAJOR`). Against a
+  daemon still reporting API `2.x` the server node logs its one-time
+  mismatch warning; calls are not blocked, but the alarm node's per-zone
+  arguments are rejected by such a daemon.
+
+### Added
+- New node **`alarm admin`** (`openccu-loom-alarm-admin`) covering the
+  alarm engine's REST surface — the configuration side the WebSocket
+  never exposed, plus the operating verbs without a WS connection:
+  zone CRUD, sensor / output enrolment (`sensors-set`, `outputs-set`
+  replace the whole set), output and remote-key candidate lists, output
+  test, code CRUD, walk-test start/stop/status (REST-only — the
+  WebSocket has the status alone), `state` / `panels` / `journal` /
+  `readiness`, and `arm` / `disarm` / `silence` / `acknowledge` /
+  `silence-all`. Gated on the same `alarm.v1` capability as the
+  WebSocket `alarm` node.
+- Five new nodes for the REST surfaces the daemon gained since API 2.27:
+  - **`groups`** — heating-group administration (`/groups`): `list`,
+    `types`, `suitable-members`, `create`, `update`, `delete`.
+  - **`diagrams`** — CRUD for the Config UI's saved diagram definitions
+    (`/diagrams`).
+  - **`links`** — the global direct-link overview (`GET /links`) and the
+    per-device link test (`POST /devices/{addr}/links/test`).
+  - **`recording`** — per-data-point history recording state
+    (`GET/PUT /history/recording`).
+- **`device admin`** gained `rename` (`PATCH /devices/{addr}` incl.
+  `rooms`/`functions`/`include_channels`), `test`, `restore-config`,
+  `replace-candidates`, `replace`, `firmware-download`, `channel-update`,
+  `channel-flags` / `channel-flags-set` and `team-candidates` /
+  `team-set`. `accept` now carries optional first-time configuration in
+  the same call, and `delete` forwards the `reset` / `force` flags.
+- **`program`** gained modes `delete` and `set-active`
+  (`PATCH /programs/{id}` — the CCU's own "program active" flag), the
+  `include_internal` list filter and `check_conditions` on `execute`
+  (the reply reports `executed`).
+- **`messages`** gained `ack-all`, plus `suppressed` and `unsuppress`
+  for the service-message suppressions.
+- **`paramset`** gained mode `determine` (reads one parameter's live
+  value from the device, channel-scoped), **`sysvar`** mode `usage` (the
+  programs referencing a variable), **`install mode`** action `search`
+  (wired-bus scan) and **`centrals`** action `reboot`.
+- Contract test `test/api3-surface.test.js` pinning the exact request
+  (method, URL incl. query string, body) of every action above, and a
+  packaging test asserting each `nodes/*.js` is registered in
+  `package.json` and ships its `.html` plus both locale files.
+
+### Fixed
+- **Test suite: an occasional `setTypeOfService EINVAL` failure charged
+  to a random `after each` hook.** The server node's deploy-time
+  `GET /info` (and the capability probe riding on it) could still be
+  queued in undici's connection pool when a test tore its backend down,
+  and undici then wrote to a socket whose listener was gone. The
+  API 3.x suite now waits for the handshake to settle before asserting.
+  Node behaviour is unchanged; only the tests were racing.
+
+### Changed
+- Vendored spec snapshots in `spec/` refreshed from the daemon repo
+  (`openapi.yaml` 2.27.0 → 3.1.0, `wsapi.json` 95 → 168 commands). Every
+  REST endpoint this package already called survived the refresh
+  unchanged — apart from the alarm rename above, the daemon-side changes
+  to them were additive.
+
 ## [0.3.0] - 2026-07-20
 
 ### Changed (breaking)

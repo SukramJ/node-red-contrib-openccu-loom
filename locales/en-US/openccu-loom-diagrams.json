@@ -1,0 +1,22 @@
+{
+  "openccu-loom-diagrams": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Action",
+      "diagramId": "Diagram ID",
+      "diagramName": "Diagram name",
+      "visibility": "Visibility"
+    },
+    "action": {
+      "list": "List",
+      "get": "Get",
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete"
+    },
+    "tip": {
+      "config": "msg.config carries the diagram definition; an object in msg.payload is sent as the body verbatim on create/update."
+    }
+  }
+}

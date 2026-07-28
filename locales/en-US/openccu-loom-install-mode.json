@@ -4,12 +4,14 @@
       "name": "Name",
       "server": "Server",
       "action": "Action",
-      "seconds": "Duration (s)"
+      "seconds": "Duration (s)",
+      "central": "Central"
     },
     "action": {
       "status": "Query status",
       "start": "Start",
-      "stop": "Stop"
+      "stop": "Stop",
+      "search": "Search bus (wired)"
     }
   }
 }

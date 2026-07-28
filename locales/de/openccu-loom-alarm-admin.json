@@ -1,0 +1,58 @@
+{
+  "openccu-loom-alarm-admin": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Aktion",
+      "zoneId": "Zonen-ID",
+      "codeId": "Code-ID",
+      "outputId": "Ausgangs-ID",
+      "class": "Ausgangsklasse",
+      "mode": "Schärfungsmodus",
+      "code": "Code (PIN)",
+      "opticalOnly": "Nur optisch testen"
+    },
+    "group": {
+      "status": "Status",
+      "zones": "Zonen",
+      "enrolment": "Sensoren & Ausgänge",
+      "codes": "Codes",
+      "walktest": "Walktest",
+      "operate": "Bedienen"
+    },
+    "action": {
+      "state": "Status (alle Zonen)",
+      "panels": "Panels",
+      "journal": "Journal",
+      "readiness": "Scharfschaltbereitschaft",
+      "zones": "Zonen auflisten",
+      "zone": "Zone lesen",
+      "zone-create": "Zone anlegen",
+      "zone-update": "Zone ersetzen",
+      "zone-delete": "Zone löschen",
+      "sensors": "Sensoren lesen",
+      "sensors-set": "Sensoren ersetzen",
+      "outputs": "Ausgänge lesen",
+      "outputs-set": "Ausgänge ersetzen",
+      "output-candidates": "Mögliche Ausgänge",
+      "remote-key-candidates": "Mögliche Fernbedientasten",
+      "output-test": "Ausgang testen",
+      "codes": "Codes auflisten",
+      "code": "Code lesen",
+      "code-create": "Code anlegen",
+      "code-update": "Code ersetzen",
+      "code-delete": "Code löschen",
+      "walktest": "Walktest-Status",
+      "walktest-start": "Walktest starten",
+      "walktest-stop": "Walktest beenden",
+      "arm": "Scharfschalten",
+      "disarm": "Unscharfschalten",
+      "silence": "Stummschalten",
+      "acknowledge": "Quittieren",
+      "silence-all": "Alle stummschalten"
+    },
+    "tip": {
+      "payload": "msg.payload liefert die Schreib-Bodies (Zone, Code) bzw. die vollständige Liste bei sensors-set/outputs-set; msg.zoneId, msg.codeId, msg.outputId und msg.class überschreiben die Felder."
+    }
+  }
+}

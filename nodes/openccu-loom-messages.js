@@ -19,6 +19,10 @@ module.exports = function (RED) {
       // config.id would be the flow-node id, never a message id.
       const id = msg.id;
       const base = kind === "service" ? "/service-messages" : "/alarm-messages";
+      // Every ack-all / suppression route is per-central; omitted, the
+      // daemon applies its own default.
+      const central = msg.central || config.central || undefined;
+      const params = central ? { params: { central } } : undefined;
 
       node.status({ fill: "yellow", shape: "ring", text: `${kind} ${action}` });
       try {
@@ -28,6 +32,27 @@ module.exports = function (RED) {
         } else if (action === "ack") {
           if (!id) return done(new Error("msg.id missing for ack"));
           res = await client.post(`${base}/${encodeURIComponent(id)}/ack`);
+        } else if (action === "ack-all") {
+          // Alarm messages are acknowledged wholesale; on the service side
+          // only the quittable ones are, and the reply counts them.
+          res = await client.post(
+            kind === "service" ? "/service-messages/ack-all" : "/alarm-messages/ack-all",
+            undefined,
+            params
+          );
+        } else if (action === "suppressed") {
+          res = await client.get("/service-messages/suppressed");
+        } else if (action === "unsuppress") {
+          // The channel identifies the suppression; interface and
+          // parameter narrow it when the same channel carries several.
+          const channel = msg.channel || config.channel;
+          if (!channel) return done(new Error("msg.channel missing for unsuppress"));
+          const body = { channel };
+          const iface = msg.interface || config.interface;
+          const parameter = msg.parameter || config.parameter;
+          if (iface) body.interface = iface;
+          if (parameter) body.parameter = parameter;
+          res = await client.post("/service-messages/unsuppress", body, params);
         } else {
           return done(new Error(`unknown action: ${action}`));
         }

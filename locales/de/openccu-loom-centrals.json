@@ -11,7 +11,8 @@
       "get": "Lesen",
       "create": "Anlegen",
       "update": "Aktualisieren",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "reboot": "CCU neu starten"
     }
   }
 }

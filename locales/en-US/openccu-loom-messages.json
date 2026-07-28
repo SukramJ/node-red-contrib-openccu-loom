@@ -5,11 +5,18 @@
       "server": "Server",
       "kind": "Kind",
       "action": "Action",
-      "id": "Message ID"
+      "id": "Message ID",
+      "central": "Central",
+      "channel": "Channel",
+      "interface": "Interface",
+      "parameter": "Parameter"
     },
     "action": {
       "list": "List",
-      "ack": "Acknowledge"
+      "ack": "Acknowledge",
+      "ack-all": "Acknowledge all",
+      "suppressed": "List suppressed",
+      "unsuppress": "Clear suppression"
     }
   }
 }

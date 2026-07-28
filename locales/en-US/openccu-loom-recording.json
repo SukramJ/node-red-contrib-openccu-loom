@@ -1,0 +1,18 @@
+{
+  "openccu-loom-recording": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Action",
+      "central": "Central",
+      "interfaceId": "Interface",
+      "channel": "Channel",
+      "parameter": "Parameter",
+      "record": "Record"
+    },
+    "action": {
+      "get": "Read state",
+      "set": "Set state"
+    }
+  }
+}
