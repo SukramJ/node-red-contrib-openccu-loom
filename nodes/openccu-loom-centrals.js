@@ -39,6 +39,12 @@ module.exports = function (RED) {
             if (!name) return done(new Error("centralName missing"));
             res = await client.delete(`/centrals/${encodeURIComponent(name)}`);
             break;
+          case "reboot":
+            // Reboots the CCU itself (admin), not the daemon; the daemon
+            // answers 202 and the CCU goes away for a while.
+            if (!name) return done(new Error("centralName missing"));
+            res = await client.post(`/system/ccu/${encodeURIComponent(name)}/reboot`);
+            break;
           default:
             return done(new Error(`unknown action: ${action}`));
         }

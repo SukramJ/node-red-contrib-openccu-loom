@@ -1,0 +1,88 @@
+<script type="text/javascript">
+  RED.nodes.registerType("openccu-loom-diagrams", {
+    category: "openccu-loom",
+    color: "#A1C9F1",
+    defaults: {
+      name: { value: "" },
+      server: { value: "", type: "openccu-loom-server", required: true },
+      action: { value: "list" },
+      diagramId: { value: "" },
+      diagramName: { value: "" },
+      visibility: { value: "" }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "font-awesome/fa-area-chart",
+    label: function () {
+      return this.name || `diagrams ${this.action}`;
+    },
+    paletteLabel: "diagrams"
+  });
+</script>
+
+<script type="text/html" data-template-name="openccu-loom-diagrams">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="openccu-loom-diagrams.label.name"></span></label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-server"><i class="fa fa-server"></i> <span data-i18n="openccu-loom-diagrams.label.server"></span></label>
+    <input type="text" id="node-input-server" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-diagrams.label.action"></span></label>
+    <select id="node-input-action">
+      <option value="list" data-i18n="openccu-loom-diagrams.action.list"></option>
+      <option value="get" data-i18n="openccu-loom-diagrams.action.get"></option>
+      <option value="create" data-i18n="openccu-loom-diagrams.action.create"></option>
+      <option value="update" data-i18n="openccu-loom-diagrams.action.update"></option>
+      <option value="delete" data-i18n="openccu-loom-diagrams.action.delete"></option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-diagramId"><i class="fa fa-key"></i> <span data-i18n="openccu-loom-diagrams.label.diagramId"></span></label>
+    <input type="text" id="node-input-diagramId" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-diagramName"><i class="fa fa-font"></i> <span data-i18n="openccu-loom-diagrams.label.diagramName"></span></label>
+    <input type="text" id="node-input-diagramName" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-visibility"><i class="fa fa-eye"></i> <span data-i18n="openccu-loom-diagrams.label.visibility"></span></label>
+    <select id="node-input-visibility">
+      <option value=""></option>
+      <option value="private">private</option>
+      <option value="shared">shared</option>
+    </select>
+  </div>
+  <div class="form-tips">
+    <span data-i18n="openccu-loom-diagrams.tip.config"></span>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="openccu-loom-diagrams">
+  <p>Reads and maintains the saved diagram definitions of the Config UI via
+  <code>/diagrams</code>. <code>list</code> returns the caller's own diagrams
+  plus the shared ones; writing is limited to the owner (or an admin).</p>
+
+  <h3>Actions</h3>
+  <ul>
+    <li><b>list</b> — <code>GET /diagrams</code></li>
+    <li><b>get</b> — <code>GET /diagrams/{id}</code></li>
+    <li><b>create</b> — <code>POST /diagrams</code></li>
+    <li><b>update</b> — <code>PUT /diagrams/{id}</code></li>
+    <li><b>delete</b> — <code>DELETE /diagrams/{id}</code></li>
+  </ul>
+
+  <h3>Inputs</h3>
+  <ul>
+    <li><code>msg.action</code>, <code>msg.diagramId</code>,
+        <code>msg.diagramName</code>, <code>msg.visibility</code>
+        (<code>private|shared</code>) — override the node fields.</li>
+    <li><code>msg.config</code> — the diagram definition itself (series,
+        axes, …), passed through to the daemon unchanged.</li>
+    <li><code>msg.payload</code> — an object here becomes the whole request
+        body for <code>create</code>/<code>update</code>, bypassing the fields
+        above.</li>
+  </ul>
+</script>

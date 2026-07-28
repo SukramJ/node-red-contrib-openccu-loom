@@ -6,7 +6,11 @@
       name: { value: "" },
       server: { value: "", type: "openccu-loom-server", required: true },
       action: { value: "refresh" },
-      address: { value: "" }
+      address: { value: "" },
+      channel: { value: "" },
+      central: { value: "" },
+      reset: { value: false },
+      force: { value: false }
     },
     inputs: 1,
     outputs: 1,
@@ -33,26 +37,104 @@
       <option value="batch" data-i18n="openccu-loom-device-admin.action.batch"></option>
       <option value="refresh" data-i18n="openccu-loom-device-admin.action.refresh"></option>
       <option value="accept" data-i18n="openccu-loom-device-admin.action.accept"></option>
+      <option value="rename" data-i18n="openccu-loom-device-admin.action.rename"></option>
       <option value="firmware" data-i18n="openccu-loom-device-admin.action.firmware"></option>
+      <option value="firmware-download" data-i18n="openccu-loom-device-admin.action.firmware-download"></option>
       <option value="delete" data-i18n="openccu-loom-device-admin.action.delete"></option>
+      <option value="test" data-i18n="openccu-loom-device-admin.action.test"></option>
+      <option value="restore-config" data-i18n="openccu-loom-device-admin.action.restore-config"></option>
+      <option value="replace-candidates" data-i18n="openccu-loom-device-admin.action.replace-candidates"></option>
+      <option value="replace" data-i18n="openccu-loom-device-admin.action.replace"></option>
+      <option value="channel-update" data-i18n="openccu-loom-device-admin.action.channel-update"></option>
+      <option value="channel-flags" data-i18n="openccu-loom-device-admin.action.channel-flags"></option>
+      <option value="channel-flags-set" data-i18n="openccu-loom-device-admin.action.channel-flags-set"></option>
+      <option value="team-candidates" data-i18n="openccu-loom-device-admin.action.team-candidates"></option>
+      <option value="team-set" data-i18n="openccu-loom-device-admin.action.team-set"></option>
     </select>
   </div>
   <div class="form-row">
     <label for="node-input-address"><i class="fa fa-id-card-o"></i> <span data-i18n="openccu-loom-device-admin.label.address"></span></label>
     <input type="text" id="node-input-address" />
   </div>
+  <div class="form-row">
+    <label for="node-input-channel"><i class="fa fa-plug"></i> <span data-i18n="openccu-loom-device-admin.label.channel"></span></label>
+    <input type="text" id="node-input-channel" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-central"><i class="fa fa-sitemap"></i> <span data-i18n="openccu-loom-device-admin.label.central"></span></label>
+    <input type="text" id="node-input-central" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-reset"><i class="fa fa-undo"></i> <span data-i18n="openccu-loom-device-admin.label.reset"></span></label>
+    <input type="checkbox" id="node-input-reset" style="width:auto; vertical-align:top" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-force"><i class="fa fa-exclamation-triangle"></i> <span data-i18n="openccu-loom-device-admin.label.force"></span></label>
+    <input type="checkbox" id="node-input-force" style="width:auto; vertical-align:top" />
+  </div>
+  <div class="form-tips">
+    <span data-i18n="openccu-loom-device-admin.tip.fields"></span>
+  </div>
 </script>
 
 <script type="text/html" data-help-name="openccu-loom-device-admin">
-  <p>Device-administration operations:</p>
+  <p>Device-administration operations. <code>msg.action</code>,
+  <code>msg.address</code>, <code>msg.channel</code> and <code>msg.central</code>
+  override the node fields.</p>
+
+  <h3>Registry &amp; values</h3>
   <ul>
     <li><b>batch</b> — <code>POST /devices/values:batch</code>;
       <code>msg.payload</code> must be an array of value writes
       <code>{address, channel, parameter, value, priority?}</code>.
       <code>msg.idempotencyKey</code> is honoured.</li>
     <li><b>refresh</b> — <code>POST /devices/refresh</code> (full registry reconcile).</li>
-    <li><b>accept</b> — <code>POST /devices/{addr}/accept</code> (Inbox device).</li>
-    <li><b>firmware</b> — <code>POST /devices/{addr}/firmware/update</code>.</li>
-    <li><b>delete</b> — <code>DELETE /devices/{addr}</code>.</li>
+  </ul>
+
+  <h3>Pairing lifecycle</h3>
+  <ul>
+    <li><b>accept</b> — <code>POST /devices/{addr}/accept</code> (Inbox device).
+      Optional first-time configuration in the same call: <code>msg.name</code>,
+      <code>msg.includeChannels</code> (cascades the rename to every channel as
+      <code>"&lt;name&gt;:&lt;channelNo&gt;"</code>), <code>msg.rooms</code>,
+      <code>msg.functions</code> (both arrays of names). An object
+      <code>msg.payload</code> is sent as the body verbatim instead.</li>
+    <li><b>rename</b> — <code>PATCH /devices/{addr}</code> with the same four
+      fields; persists to the CCU. A backend without JSON-RPC (Homegear, CUxD)
+      answers 422.</li>
+    <li><b>delete</b> — <code>DELETE /devices/{addr}</code>. <code>msg.reset</code>
+      also factory-resets the device during removal, <code>msg.force</code>
+      removes an unreachable one; both default to a plain unpair.</li>
+    <li><b>replace-candidates</b> — <code>GET /devices/{addr}/replace-candidates</code>:
+      the devices this (newly paired) device may take over.</li>
+    <li><b>replace</b> — <code>POST /devices/{addr}/replace</code>; the device
+      being replaced comes from <code>msg.oldAddress</code>.</li>
+  </ul>
+
+  <h3>Firmware &amp; diagnostics</h3>
+  <ul>
+    <li><b>firmware</b> — <code>POST /devices/{addr}/firmware/update</code>. The
+      reply may carry an advisory <code>duty_cycle_warning</code>; the update is
+      never rejected on that basis.</li>
+    <li><b>firmware-download</b> — <code>POST /system/firmware/download</code>
+      pulls a firmware image onto the CCU from <code>msg.url</code> (admin).</li>
+    <li><b>test</b> — <code>POST /devices/{addr}/test</code> runs the per-device
+      communication test and reports <code>passed</code> / <code>duration_ms</code>.</li>
+    <li><b>restore-config</b> — <code>POST /devices/{addr}/config/restore</code>
+      re-transmits the stored configuration (admin).</li>
+  </ul>
+
+  <h3>Channels</h3>
+  <ul>
+    <li><b>channel-update</b> — <code>PATCH /devices/{addr}/channels/{no}</code>
+      with <code>msg.name</code>, <code>msg.rooms</code>, <code>msg.functions</code>.</li>
+    <li><b>channel-flags</b> / <b>channel-flags-set</b> —
+      <code>GET</code>/<code>PUT /devices/{addr}/channels/{no}/flags</code>: the
+      operator overrides <code>msg.hidden</code> (drop from the UI) and
+      <code>msg.locked</code> (block operating it).</li>
+    <li><b>team-candidates</b> / <b>team-set</b> —
+      <code>GET /devices/{addr}/channels/{no}/team-candidates</code> and
+      <code>PUT …/team</code>; an empty <code>msg.team</code> detaches the
+      channel from its team.</li>
   </ul>
 </script>

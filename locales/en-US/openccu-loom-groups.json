@@ -1,0 +1,24 @@
+{
+  "openccu-loom-groups": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Action",
+      "groupId": "Group ID",
+      "groupName": "Group name",
+      "typeId": "Group type",
+      "central": "Central"
+    },
+    "action": {
+      "list": "List",
+      "types": "Group types",
+      "suitable-members": "Suitable members",
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete"
+    },
+    "tip": {
+      "payload": "msg.members supplies the member list; an object in msg.payload is sent as the body verbatim on create/update."
+    }
+  }
+}

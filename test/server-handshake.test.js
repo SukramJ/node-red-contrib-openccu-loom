@@ -75,7 +75,7 @@ describe("openccu-loom-server handshake", function () {
       addon_build: false,
       uptime: "1h",
       started_at: "2026-01-01T00:00:00Z",
-      api_version: "2.27.0",
+      api_version: "3.1.0",
       schema_digest: "sha256:deadbeef",
       capabilities: ["rest.v1", "alarm.v1"],
     });
@@ -87,7 +87,7 @@ describe("openccu-loom-server handshake", function () {
     n1.warn = (text) => warnCalls.push(text);
 
     await n1.refreshInfo(true);
-    assert.strictEqual(n1.api.version, "2.27.0");
+    assert.strictEqual(n1.api.version, "3.1.0");
     assert.strictEqual(n1.api.major, SUPPORTED_API_MAJOR);
     assert.strictEqual(n1.api.supported, true);
     assert.deepStrictEqual(n1.api.capabilities, ["rest.v1", "alarm.v1"]);
@@ -106,7 +106,7 @@ describe("openccu-loom-server handshake", function () {
       addon_build: false,
       uptime: "1h",
       started_at: "2026-01-01T00:00:00Z",
-      api_version: "3.0.0",
+      api_version: "4.0.0",
       schema_digest: "sha256:deadbeef",
       capabilities: ["rest.v1"],
     });
@@ -118,11 +118,11 @@ describe("openccu-loom-server handshake", function () {
     n1.warn = (text) => warnCalls.push(text);
 
     await n1.refreshInfo(true);
-    assert.strictEqual(n1.api.version, "3.0.0");
-    assert.strictEqual(n1.api.major, 3);
+    assert.strictEqual(n1.api.version, "4.0.0");
+    assert.strictEqual(n1.api.major, 4);
     assert.strictEqual(n1.api.supported, false);
     assert.strictEqual(warnCalls.length, 1, "a mismatched major must warn exactly once");
-    assert.ok(/API 3\.0\.0/.test(warnCalls[0]), `unexpected warning: ${warnCalls[0]}`);
+    assert.ok(/API 4\.0\.0/.test(warnCalls[0]), `unexpected warning: ${warnCalls[0]}`);
 
     // A second handshake must not warn again (the `warned` guard is sticky).
     await n1.refreshInfo(true);

@@ -8,7 +8,9 @@
       address: { value: "" },
       key: { value: "VALUES" },
       mode: { value: "read" },
-      idempotencyKey: { value: "" }
+      idempotencyKey: { value: "" },
+      channel: { value: "" },
+      parameter: { value: "" }
     },
     inputs: 1,
     outputs: 1,
@@ -46,7 +48,16 @@
     <select id="node-input-mode">
       <option value="read" data-i18n="openccu-loom-paramset.mode.read"></option>
       <option value="write" data-i18n="openccu-loom-paramset.mode.write"></option>
+      <option value="determine" data-i18n="openccu-loom-paramset.mode.determine"></option>
     </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-channel"><i class="fa fa-plug"></i> <span data-i18n="openccu-loom-paramset.label.channel"></span></label>
+    <input type="text" id="node-input-channel" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-parameter"><i class="fa fa-sliders"></i> <span data-i18n="openccu-loom-paramset.label.parameter"></span></label>
+    <input type="text" id="node-input-parameter" />
   </div>
   <div class="form-row">
     <label for="node-input-idempotencyKey"><i class="fa fa-shield"></i> <span data-i18n="openccu-loom-paramset.label.idempotency"></span></label>
@@ -61,4 +72,11 @@
   XML-RPC call — the CCU applies or rejects all keys together. The optional
   <code>msg.idempotencyKey</code> is forwarded as <code>Idempotency-Key</code>
   header (5-minute dedupe window).</p>
+  <p><b>determine</b> —
+  <code>POST /devices/{addr}/channels/{no}/paramsets/{key}/determine</code>
+  reads a single parameter's live value straight from the device instead of
+  the cached paramset (the CCU WebUI's "determine" button). Unlike
+  <code>read</code>/<code>write</code> it is channel-scoped:
+  <code>msg.channel</code> and <code>msg.parameter</code> are required and the
+  reply is <code>{value}</code>.</p>
 </script>

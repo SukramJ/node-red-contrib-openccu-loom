@@ -1,0 +1,82 @@
+<script type="text/javascript">
+  RED.nodes.registerType("openccu-loom-recording", {
+    category: "openccu-loom",
+    color: "#A1C9F1",
+    defaults: {
+      name: { value: "" },
+      server: { value: "", type: "openccu-loom-server", required: true },
+      action: { value: "get" },
+      central: { value: "" },
+      interfaceId: { value: "" },
+      channel: { value: "" },
+      parameter: { value: "" },
+      record: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "font-awesome/fa-database",
+    label: function () {
+      return this.name || `recording ${this.action}`;
+    },
+    paletteLabel: "recording"
+  });
+</script>
+
+<script type="text/html" data-template-name="openccu-loom-recording">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="openccu-loom-recording.label.name"></span></label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-server"><i class="fa fa-server"></i> <span data-i18n="openccu-loom-recording.label.server"></span></label>
+    <input type="text" id="node-input-server" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-recording.label.action"></span></label>
+    <select id="node-input-action">
+      <option value="get" data-i18n="openccu-loom-recording.action.get"></option>
+      <option value="set" data-i18n="openccu-loom-recording.action.set"></option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-central"><i class="fa fa-sitemap"></i> <span data-i18n="openccu-loom-recording.label.central"></span></label>
+    <input type="text" id="node-input-central" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-interfaceId"><i class="fa fa-random"></i> <span data-i18n="openccu-loom-recording.label.interfaceId"></span></label>
+    <input type="text" id="node-input-interfaceId" placeholder="HmIP-RF" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-channel"><i class="fa fa-plug"></i> <span data-i18n="openccu-loom-recording.label.channel"></span></label>
+    <input type="text" id="node-input-channel" placeholder="000C9709AEF157:1" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-parameter"><i class="fa fa-sliders"></i> <span data-i18n="openccu-loom-recording.label.parameter"></span></label>
+    <input type="text" id="node-input-parameter" placeholder="ACTUAL_TEMPERATURE" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-record"><i class="fa fa-circle"></i> <span data-i18n="openccu-loom-recording.label.record"></span></label>
+    <input type="checkbox" id="node-input-record" style="width:auto; vertical-align:top" />
+  </div>
+</script>
+
+<script type="text/html" data-help-name="openccu-loom-recording">
+  <p>Reads and sets the per-data-point history recording state via
+  <code>/history/recording</code>.</p>
+
+  <h3>Actions</h3>
+  <ul>
+    <li><b>get</b> — <code>GET /history/recording</code> reports the effective
+      state as <code>{record, source}</code>; <code>source</code> names the rule
+      that decided it (the per-data-point override or a configured default).</li>
+    <li><b>set</b> — <code>PUT /history/recording</code> sets the override.
+      Leave <code>msg.record</code> unset to clear the override and hand the
+      data point back to the configured default.</li>
+  </ul>
+
+  <h3>Inputs</h3>
+  <p>Both actions address exactly one data point and need all four
+  coordinates: <code>msg.central</code>, <code>msg.interfaceId</code>
+  (or <code>msg.interface_id</code>), <code>msg.channel</code> and
+  <code>msg.parameter</code>. The node fields supply the defaults.</p>
+</script>

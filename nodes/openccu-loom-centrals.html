@@ -35,6 +35,7 @@
       <option value="create" data-i18n="openccu-loom-centrals.action.create"></option>
       <option value="update" data-i18n="openccu-loom-centrals.action.update"></option>
       <option value="delete" data-i18n="openccu-loom-centrals.action.delete"></option>
+      <option value="reboot" data-i18n="openccu-loom-centrals.action.reboot"></option>
     </select>
   </div>
   <div class="form-row">
@@ -48,4 +49,7 @@
   <code>/centrals/{name}</code>. Mutating calls require admin.</p>
   <p><code>msg.payload</code> for <code>create</code>/<code>update</code> must be
   a <code>CentralRow</code> object.</p>
+  <p><b>reboot</b> — <code>POST /system/ccu/{central}/reboot</code> reboots the
+  CCU itself (admin, not the daemon). The daemon answers 202 and the CCU is
+  unreachable for a while afterwards.</p>
 </script>

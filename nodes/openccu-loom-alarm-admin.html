@@ -1,0 +1,200 @@
+<script type="text/javascript">
+  RED.nodes.registerType("openccu-loom-alarm-admin", {
+    category: "openccu-loom",
+    color: "#A1C9F1",
+    defaults: {
+      name: { value: "" },
+      server: { value: "", type: "openccu-loom-server", required: true },
+      action: { value: "state" },
+      zoneId: { value: "" },
+      codeId: { value: "" },
+      outputId: { value: "" },
+      class: { value: "" },
+      mode: { value: "" },
+      code: { value: "" },
+      opticalOnly: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "font-awesome/fa-shield",
+    label: function () {
+      return this.name || `alarm-admin ${this.action}`;
+    },
+    paletteLabel: "alarm admin"
+  });
+</script>
+
+<script type="text/html" data-template-name="openccu-loom-alarm-admin">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="openccu-loom-alarm-admin.label.name"></span></label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-server"><i class="fa fa-server"></i> <span data-i18n="openccu-loom-alarm-admin.label.server"></span></label>
+    <input type="text" id="node-input-server" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-alarm-admin.label.action"></span></label>
+    <select id="node-input-action">
+      <optgroup data-i18n="[label]openccu-loom-alarm-admin.group.status">
+        <option value="state" data-i18n="openccu-loom-alarm-admin.action.state"></option>
+        <option value="panels" data-i18n="openccu-loom-alarm-admin.action.panels"></option>
+        <option value="journal" data-i18n="openccu-loom-alarm-admin.action.journal"></option>
+        <option value="readiness" data-i18n="openccu-loom-alarm-admin.action.readiness"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-alarm-admin.group.zones">
+        <option value="zones" data-i18n="openccu-loom-alarm-admin.action.zones"></option>
+        <option value="zone" data-i18n="openccu-loom-alarm-admin.action.zone"></option>
+        <option value="zone-create" data-i18n="openccu-loom-alarm-admin.action.zone-create"></option>
+        <option value="zone-update" data-i18n="openccu-loom-alarm-admin.action.zone-update"></option>
+        <option value="zone-delete" data-i18n="openccu-loom-alarm-admin.action.zone-delete"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-alarm-admin.group.enrolment">
+        <option value="sensors" data-i18n="openccu-loom-alarm-admin.action.sensors"></option>
+        <option value="sensors-set" data-i18n="openccu-loom-alarm-admin.action.sensors-set"></option>
+        <option value="outputs" data-i18n="openccu-loom-alarm-admin.action.outputs"></option>
+        <option value="outputs-set" data-i18n="openccu-loom-alarm-admin.action.outputs-set"></option>
+        <option value="output-candidates" data-i18n="openccu-loom-alarm-admin.action.output-candidates"></option>
+        <option value="remote-key-candidates" data-i18n="openccu-loom-alarm-admin.action.remote-key-candidates"></option>
+        <option value="output-test" data-i18n="openccu-loom-alarm-admin.action.output-test"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-alarm-admin.group.codes">
+        <option value="codes" data-i18n="openccu-loom-alarm-admin.action.codes"></option>
+        <option value="code" data-i18n="openccu-loom-alarm-admin.action.code"></option>
+        <option value="code-create" data-i18n="openccu-loom-alarm-admin.action.code-create"></option>
+        <option value="code-update" data-i18n="openccu-loom-alarm-admin.action.code-update"></option>
+        <option value="code-delete" data-i18n="openccu-loom-alarm-admin.action.code-delete"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-alarm-admin.group.walktest">
+        <option value="walktest" data-i18n="openccu-loom-alarm-admin.action.walktest"></option>
+        <option value="walktest-start" data-i18n="openccu-loom-alarm-admin.action.walktest-start"></option>
+        <option value="walktest-stop" data-i18n="openccu-loom-alarm-admin.action.walktest-stop"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-alarm-admin.group.operate">
+        <option value="arm" data-i18n="openccu-loom-alarm-admin.action.arm"></option>
+        <option value="disarm" data-i18n="openccu-loom-alarm-admin.action.disarm"></option>
+        <option value="silence" data-i18n="openccu-loom-alarm-admin.action.silence"></option>
+        <option value="acknowledge" data-i18n="openccu-loom-alarm-admin.action.acknowledge"></option>
+        <option value="silence-all" data-i18n="openccu-loom-alarm-admin.action.silence-all"></option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-zoneId"><i class="fa fa-shield"></i> <span data-i18n="openccu-loom-alarm-admin.label.zoneId"></span></label>
+    <input type="text" id="node-input-zoneId" placeholder="zone-1" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-codeId"><i class="fa fa-key"></i> <span data-i18n="openccu-loom-alarm-admin.label.codeId"></span></label>
+    <input type="text" id="node-input-codeId" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-outputId"><i class="fa fa-bullhorn"></i> <span data-i18n="openccu-loom-alarm-admin.label.outputId"></span></label>
+    <input type="text" id="node-input-outputId" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-class"><i class="fa fa-filter"></i> <span data-i18n="openccu-loom-alarm-admin.label.class"></span></label>
+    <select id="node-input-class">
+      <option value=""></option>
+      <option value="acoustic_siren">acoustic_siren</option>
+      <option value="optical_siren">optical_siren</option>
+      <option value="switched_siren">switched_siren</option>
+      <option value="smoke_sounder">smoke_sounder</option>
+      <option value="alarm_light">alarm_light</option>
+      <option value="chirp">chirp</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-mode"><i class="fa fa-lock"></i> <span data-i18n="openccu-loom-alarm-admin.label.mode"></span></label>
+    <input type="text" id="node-input-mode" placeholder="away | home | night | vacation" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-code"><i class="fa fa-keyboard-o"></i> <span data-i18n="openccu-loom-alarm-admin.label.code"></span></label>
+    <input type="text" id="node-input-code" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-opticalOnly"><i class="fa fa-lightbulb-o"></i> <span data-i18n="openccu-loom-alarm-admin.label.opticalOnly"></span></label>
+    <input type="checkbox" id="node-input-opticalOnly" style="width:auto; vertical-align:top" />
+  </div>
+  <div class="form-tips">
+    <span data-i18n="openccu-loom-alarm-admin.tip.payload"></span>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="openccu-loom-alarm-admin">
+  <p>The alarm engine's REST surface (<code>/alarm/…</code>): configuring
+  zones, sensors, outputs and codes, running walk tests, and operating a zone
+  without the WebSocket.</p>
+
+  <p>Companion to the <code>alarm</code> node, which dispatches the same
+  operating verbs as <code>alarm_panel.*</code> WebSocket commands over the
+  shared hub. Use <code>alarm</code> when a flow already holds a WS connection,
+  and this node for everything the WebSocket does not expose — the whole
+  configuration surface and starting/stopping walk tests.</p>
+
+  <h3>Live status</h3>
+  <ul>
+    <li><b>state</b> (default) — <code>GET /alarm/state</code>: every zone's
+      state, mode, bypassed sensors, active incident and countdown.</li>
+    <li><b>panels</b> — <code>GET /alarm/panels</code>: the
+      alarm-control-panel entity projections, incl. the master panel.</li>
+    <li><b>journal</b> — <code>GET /alarm/journal</code>, newest first.
+      <code>msg.zone</code>, <code>msg.class</code> (<code>arm</code>,
+      <code>disarm</code>, <code>trigger</code>, <code>silence</code>,
+      <code>bypass</code>, <code>fault</code>, <code>test</code>,
+      <code>config</code>), <code>msg.from</code>, <code>msg.to</code> and
+      <code>msg.limit</code> filter it.</li>
+    <li><b>readiness</b> — per-mode arm readiness of one zone.</li>
+  </ul>
+
+  <h3>Zones</h3>
+  <ul>
+    <li><b>zones</b> / <b>zone</b> — list, or read one by
+      <code>msg.zoneId</code>.</li>
+    <li><b>zone-create</b> / <b>zone-update</b> — <code>msg.payload</code> is
+      the zone object and needs at least <code>{id, name}</code>;
+      <code>position</code> and <code>config</code> are optional. The update is
+      a replace, so send the complete object.</li>
+    <li><b>zone-delete</b> — removes the zone and its enrolments.</li>
+  </ul>
+
+  <h3>Sensors, outputs, codes</h3>
+  <ul>
+    <li><b>sensors</b> / <b>outputs</b> — the enrolments of one zone.</li>
+    <li><b>sensors-set</b> / <b>outputs-set</b> — <code>msg.payload</code> must
+      be the <em>full</em> array; it replaces the existing set, and an empty
+      array unenrols everything. Sensor rows carry
+      <code>{id, central, interface_id, channel_address, parameter, type}</code>,
+      output rows <code>{id, class, central, channel_address}</code>.</li>
+    <li><b>output-candidates</b> — the channels that can back an output class;
+      <code>msg.class</code> narrows them. Each row carries the device's rooms
+      and functions, so a picker can group by them.</li>
+    <li><b>remote-key-candidates</b> — remote / wall-button key channels usable
+      for remote-key code bindings.</li>
+    <li><b>output-test</b> — fires the output <code>msg.outputId</code> briefly;
+      <code>msg.opticalOnly</code> keeps a combined siren silent.</li>
+    <li><b>codes</b>, <b>code</b>, <b>code-create</b>, <b>code-update</b>,
+      <b>code-delete</b> — the alarm codes. Write bodies come from
+      <code>msg.payload</code> (<code>name</code>, <code>kind</code>,
+      <code>perms</code>, <code>enabled</code> are required; <code>pin</code>,
+      <code>zones</code>, <code>binding</code>, <code>duress</code> and the
+      validity window are optional).</li>
+  </ul>
+
+  <h3>Walk test</h3>
+  <p><b>walktest-start</b> / <b>walktest-stop</b> run a session on
+  <code>msg.zoneId</code>, <b>walktest</b> reads its live status. Only reachable
+  over REST — the WebSocket exposes the status alone.</p>
+
+  <h3>Operating a zone</h3>
+  <p><b>arm</b> (<code>msg.mode</code> plus optional <code>msg.force</code>,
+  <code>msg.skipDelay</code>, <code>msg.bypass</code>, <code>msg.code</code>),
+  <b>disarm</b>, <b>silence</b>, <b>acknowledge</b> (each honouring
+  <code>msg.code</code>) and <b>silence-all</b>. An object
+  <code>msg.payload</code> is sent as the arm body verbatim.</p>
+
+  <h3>Capability gate</h3>
+  <p>At deploy the node checks <code>alarm.v1</code> against the server's
+  <code>GET /api/v1/info</code> capability list and shows a yellow advisory
+  status when the alarm engine is not compiled in — every <code>/alarm</code>
+  route answers 404 in that case.</p>
+</script>

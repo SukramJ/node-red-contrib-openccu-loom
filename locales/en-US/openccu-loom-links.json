@@ -1,0 +1,19 @@
+{
+  "openccu-loom-links": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Action",
+      "central": "Central",
+      "locale": "Locale",
+      "address": "Device address",
+      "senderAddress": "Sender channel",
+      "receiverAddress": "Receiver channel",
+      "longPress": "Long press"
+    },
+    "action": {
+      "list": "List direct links",
+      "test": "Test link"
+    }
+  }
+}

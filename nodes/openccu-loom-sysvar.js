@@ -31,6 +31,16 @@ module.exports = function (RED) {
           case "read":
             res = await client.get(`/sysvars/${encodeURIComponent(name)}`);
             break;
+          case "usage": {
+            // The programs referencing this variable — read-only, so a
+            // sysvar can be checked before it is renamed or deleted.
+            const central = msg.central || config.central;
+            res = await client.get(
+              `/sysvars/${encodeURIComponent(name)}/usage`,
+              central ? { params: { central } } : undefined
+            );
+            break;
+          }
           case "write":
             res = await client.put(`/sysvars/${encodeURIComponent(name)}`, {
               value: msg.payload,
