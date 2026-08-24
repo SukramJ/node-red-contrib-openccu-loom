@@ -1,0 +1,136 @@
+<script type="text/javascript">
+  RED.nodes.registerType("openccu-loom-matter", {
+    category: "openccu-loom",
+    color: "#A1C9F1",
+    defaults: {
+      name: { value: "" },
+      server: { value: "", type: "openccu-loom-server", required: true },
+      action: { value: "status" },
+      fabricId: { value: "" },
+      durationSeconds: { value: "" }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "bridge.svg",
+    label: function () {
+      return this.name || `matter ${this.action}`;
+    },
+    paletteLabel: "matter"
+  });
+</script>
+
+<script type="text/html" data-template-name="openccu-loom-matter">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="openccu-loom-matter.label.name"></span></label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-server"><i class="fa fa-server"></i> <span data-i18n="openccu-loom-matter.label.server"></span></label>
+    <input type="text" id="node-input-server" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-matter.label.action"></span></label>
+    <select id="node-input-action">
+      <optgroup data-i18n="[label]openccu-loom-matter.group.status">
+        <option value="status" data-i18n="openccu-loom-matter.action.status"></option>
+        <option value="compatibility" data-i18n="openccu-loom-matter.action.compatibility"></option>
+        <option value="endpoints" data-i18n="openccu-loom-matter.action.endpoints"></option>
+        <option value="mdns" data-i18n="openccu-loom-matter.action.mdns"></option>
+        <option value="sessions" data-i18n="openccu-loom-matter.action.sessions"></option>
+        <option value="events" data-i18n="openccu-loom-matter.action.events"></option>
+        <option value="force-sync" data-i18n="openccu-loom-matter.action.force-sync"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-matter.group.fabrics">
+        <option value="fabrics" data-i18n="openccu-loom-matter.action.fabrics"></option>
+        <option value="fabric-delete" data-i18n="openccu-loom-matter.action.fabric-delete"></option>
+        <option value="factory-reset" data-i18n="openccu-loom-matter.action.factory-reset"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-matter.group.exposable">
+        <option value="exposable" data-i18n="openccu-loom-matter.action.exposable"></option>
+        <option value="exposable-set" data-i18n="openccu-loom-matter.action.exposable-set"></option>
+        <option value="exposable-bulk" data-i18n="openccu-loom-matter.action.exposable-bulk"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-matter.group.commissioning">
+        <option value="setup-payload" data-i18n="openccu-loom-matter.action.setup-payload"></option>
+        <option value="commissioning-window" data-i18n="openccu-loom-matter.action.commissioning-window"></option>
+        <option value="commissioning-open" data-i18n="openccu-loom-matter.action.commissioning-open"></option>
+        <option value="commissioning-close" data-i18n="openccu-loom-matter.action.commissioning-close"></option>
+        <option value="share" data-i18n="openccu-loom-matter.action.share"></option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-fabricId"><i class="fa fa-key"></i> <span data-i18n="openccu-loom-matter.label.fabricId"></span></label>
+    <input type="text" id="node-input-fabricId" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-durationSeconds"><i class="fa fa-clock-o"></i> <span data-i18n="openccu-loom-matter.label.durationSeconds"></span></label>
+    <input type="text" id="node-input-durationSeconds" placeholder="900" />
+  </div>
+  <div class="form-tips">
+    <span data-i18n="openccu-loom-matter.tip.payload"></span>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="openccu-loom-matter">
+  <p>The Matter bridge surface (<code>/matter/…</code>): what the bridge
+  exposes to Matter controllers, which ecosystems are commissioned to it, and
+  the commissioning windows that let new ones in.</p>
+
+  <h3>Status and topology</h3>
+  <ul>
+    <li><b>status</b> (default) — bridge runtime state: endpoint count, fabric
+      count, whether a commissioning window is open.</li>
+    <li><b>compatibility</b> — how each commissioned ecosystem will treat what
+      the bridge exposes. Read this before blaming the bridge for a device an
+      ecosystem renders oddly.</li>
+    <li><b>endpoints</b> — the assembled topology as a controller sees it.</li>
+    <li><b>mdns</b> — what the bridge advertises over mDNS, and what is wrong
+      with it. The first place to look when no controller finds the
+      bridge.</li>
+    <li><b>sessions</b> — open Matter sessions with per-session liveness.</li>
+    <li><b>events</b> — recent pairing, session and discovery events; the
+      moments that explain a failed pairing.</li>
+    <li><b>force-sync</b> — re-assembles the exposed topology (admin). Use it
+      after allowlist changes that the bridge has not picked up.</li>
+  </ul>
+
+  <h3>Fabrics</h3>
+  <ul>
+    <li><b>fabrics</b> — the ecosystems commissioned to the bridge.</li>
+    <li><b>fabric-delete</b> — unpairs the fabric <code>msg.fabricId</code>
+      (admin). That ecosystem loses the bridge.</li>
+    <li><b>factory-reset</b> — removes <em>every</em> fabric (admin,
+      destructive): every controller has to re-pair afterwards. The node fills
+      in the daemon's required confirmation token itself, so this action needs
+      no payload — wire it behind something deliberate.</li>
+  </ul>
+
+  <h3>Allowlist</h3>
+  <ul>
+    <li><b>exposable</b> — every candidate source with its current allowlist
+      state.</li>
+    <li><b>exposable-set</b> — updates one row (admin).
+      <code>msg.payload</code> needs
+      <code>{central_name, device_address, channel_no, dp_kind, dp_key,
+      enabled}</code>; <code>friendly_name</code> is optional.
+      <code>dp_kind</code> is one of <code>custom</code>,
+      <code>generic</code>, <code>calculated</code>, <code>combined</code>,
+      <code>measurement</code>.</li>
+    <li><b>exposable-bulk</b> — applies several such rows at once. Send them as
+      a bare array in <code>msg.payload</code> (the node wraps it) or as
+      <code>{items: [...]}</code>.</li>
+  </ul>
+
+  <h3>Commissioning</h3>
+  <ul>
+    <li><b>setup-payload</b> — the bridge's QR and manual pairing code.</li>
+    <li><b>commissioning-window</b> — reads the current window state.</li>
+    <li><b>commissioning-open</b> — opens a window for the first controller.
+      <b>share</b> opens one for an additional ecosystem. Both take an optional
+      <code>msg.durationSeconds</code> (180…900, default 900); a
+      <code>msg.payload</code> object is passed through as the body
+      instead.</li>
+    <li><b>commissioning-close</b> — closes an open window early (admin).</li>
+  </ul>
+</script>

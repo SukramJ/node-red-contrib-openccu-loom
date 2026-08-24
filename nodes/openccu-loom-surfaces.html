@@ -1,0 +1,63 @@
+<script type="text/javascript">
+  RED.nodes.registerType("openccu-loom-surfaces", {
+    category: "openccu-loom",
+    color: "#A1C9F1",
+    defaults: {
+      name: { value: "" },
+      server: { value: "", type: "openccu-loom-server", required: true },
+      action: { value: "get" }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "cog.svg",
+    label: function () {
+      return this.name || `surfaces ${this.action}`;
+    },
+    paletteLabel: "surfaces"
+  });
+</script>
+
+<script type="text/html" data-template-name="openccu-loom-surfaces">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="openccu-loom-surfaces.label.name"></span></label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-server"><i class="fa fa-server"></i> <span data-i18n="openccu-loom-surfaces.label.server"></span></label>
+    <input type="text" id="node-input-server" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-surfaces.label.action"></span></label>
+    <select id="node-input-action">
+      <option value="get" data-i18n="openccu-loom-surfaces.action.get"></option>
+      <option value="set" data-i18n="openccu-loom-surfaces.action.set"></option>
+    </select>
+  </div>
+  <div class="form-tips">
+    <span data-i18n="openccu-loom-surfaces.tip.payload"></span>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="openccu-loom-surfaces">
+  <p>The config-UI surface registry (<code>/ui/surfaces</code>): which views the
+  daemon's own web UI shows, and the master toggle that hides them while it is
+  embedded in another front end.</p>
+
+  <ul>
+    <li><b>get</b> (default) — the registry plus the live profile.</li>
+    <li><b>set</b> — <code>PUT /ui/surfaces</code>. Every field of
+      <code>msg.payload</code> is optional:
+      <ul>
+        <li><code>embedded</code> — flips the master toggle.</li>
+        <li><code>embedded_scope</code> — <code>inside_ha</code> or
+          <code>always</code>, where that toggle applies. An unrecognised value
+          is rejected rather than silently defaulted.</li>
+        <li><code>profiles</code> — the <em>full</em> desired override set per
+          profile, as
+          <code>{profile: {surface: "visible" | "hidden"}}</code>.</li>
+      </ul>
+      Omitting <code>profiles</code> leaves the stored overrides untouched;
+      omitting the two <code>embedded</code> fields leaves the mode as it
+      is.</li>
+  </ul>
+</script>

@@ -96,8 +96,11 @@ module.exports = function (RED) {
             break;
           case "zone-create": {
             const body = payloadObject();
-            if (!body || !body.id || !body.name) {
-              return done(new Error("zone-create needs an object msg.payload with at least {id, name}"));
+            // The daemon mints the zone id itself (AlarmZoneCreate requires
+            // only `name`) and ignores one sent in the body, so a payload
+            // carrying `id` is accepted but never honoured.
+            if (!body || !body.name) {
+              return done(new Error("zone-create needs an object msg.payload with at least {name}"));
             }
             res = await client.post("/alarm/zones", body);
             break;
@@ -151,6 +154,16 @@ module.exports = function (RED) {
           case "remote-key-candidates":
             res = await client.get("/alarm/remote-key-candidates");
             break;
+          case "sensor-candidates": {
+            // `enrolled=false` is the only value the daemon accepts; it
+            // trims the list to the data points no zone has taken yet.
+            const onlyFree = msg.unenrolled != null ? msg.unenrolled : config.unenrolled;
+            res = await client.get(
+              "/alarm/sensor-candidates",
+              onlyFree ? { params: { enrolled: "false" } } : undefined
+            );
+            break;
+          }
           case "output-test": {
             if (outputId == null || outputId === "") return done(new Error("msg.outputId missing"));
             const opticalOnly = msg.opticalOnly != null ? msg.opticalOnly : config.opticalOnly;
@@ -197,6 +210,40 @@ module.exports = function (RED) {
           case "walktest-stop":
             if (needsZone()) return;
             res = await client.post(`/alarm/zones/${encodeURIComponent(zoneId)}/walktest/stop`);
+            break;
+
+          // --- incidents -------------------------------------------------
+          case "incidents": {
+            // zone_id is mandatory here: the incident history is kept per
+            // zone, so there is no fleet-wide listing to fall back to.
+            if (needsZone()) return;
+            const params = { zone_id: zoneId };
+            const limit = msg.limit != null ? msg.limit : config.limit;
+            if (limit != null && limit !== "") params.limit = limit;
+            res = await client.get("/alarm/incidents", { params });
+            break;
+          }
+          case "incident": {
+            const id = msg.incidentId != null && msg.incidentId !== "" ? msg.incidentId : config.incidentId;
+            if (id == null || id === "") return done(new Error("msg.incidentId missing"));
+            res = await client.get(`/alarm/incidents/${encodeURIComponent(id)}`);
+            break;
+          }
+
+          // --- latched motion detectors ----------------------------------
+          case "triggered-motion": {
+            // Unlike the incident history this one is fleet-wide by default;
+            // a zone id narrows it to that zone's latched detectors.
+            const params = zoneId != null && zoneId !== "" ? { zone_id: zoneId } : undefined;
+            res = await client.get("/alarm/triggered-motion", params ? { params } : undefined);
+            break;
+          }
+          case "reset-motion":
+            res = await client.post("/alarm/reset-motion");
+            break;
+          case "zone-reset-motion":
+            if (needsZone()) return;
+            res = await client.post(`/alarm/zones/${encodeURIComponent(zoneId)}/reset-motion`);
             break;
 
           // --- operating a zone over REST -------------------------------

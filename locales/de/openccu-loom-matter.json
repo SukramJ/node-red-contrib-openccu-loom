@@ -1,0 +1,40 @@
+{
+  "openccu-loom-matter": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Aktion",
+      "fabricId": "Fabric-ID",
+      "durationSeconds": "Fenster-Dauer (s)"
+    },
+    "group": {
+      "status": "Status & Topologie",
+      "fabrics": "Fabrics",
+      "exposable": "Freigabeliste",
+      "commissioning": "Inbetriebnahme"
+    },
+    "action": {
+      "status": "Bridge-Status",
+      "compatibility": "Kompatibilität",
+      "endpoints": "Endpunkte",
+      "mdns": "mDNS-Ankündigung",
+      "sessions": "Offene Sitzungen",
+      "events": "Ereignisse",
+      "force-sync": "Topologie neu aufbauen",
+      "fabrics": "Fabrics auflisten",
+      "fabric-delete": "Fabric entfernen",
+      "factory-reset": "Alle Fabrics entfernen",
+      "exposable": "Freigabeliste lesen",
+      "exposable-set": "Freigabe setzen",
+      "exposable-bulk": "Freigaben gesammelt setzen",
+      "setup-payload": "Kopplungscode",
+      "commissioning-window": "Fenster-Status",
+      "commissioning-open": "Fenster öffnen",
+      "commissioning-close": "Fenster schließen",
+      "share": "Bridge teilen"
+    },
+    "tip": {
+      "payload": "msg.payload liefert die Schreib-Bodies (exposable-set/-bulk) bzw. den Fenster-Body; msg.fabricId und msg.durationSeconds überschreiben die Felder. factory-reset setzt das Bestätigungs-Token selbst."
+    }
+  }
+}

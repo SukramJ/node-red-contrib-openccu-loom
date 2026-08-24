@@ -25,6 +25,11 @@ const groupsNode = require("../nodes/openccu-loom-groups.js");
 const diagramsNode = require("../nodes/openccu-loom-diagrams.js");
 const linksNode = require("../nodes/openccu-loom-links.js");
 const recordingNode = require("../nodes/openccu-loom-recording.js");
+const securityNode = require("../nodes/openccu-loom-security.js");
+const matterNode = require("../nodes/openccu-loom-matter.js");
+const areasNode = require("../nodes/openccu-loom-areas.js");
+const backupsNode = require("../nodes/openccu-loom-backups.js");
+const surfacesNode = require("../nodes/openccu-loom-surfaces.js");
 
 helper.init(require.resolve("node-red"));
 
@@ -109,6 +114,11 @@ describe("contrib loads", function () {
     [diagramsNode, "openccu-loom-diagrams", { action: "list" }],
     [linksNode, "openccu-loom-links", { action: "list" }],
     [recordingNode, "openccu-loom-recording", { action: "get" }],
+    [securityNode, "openccu-loom-security", { action: "state" }],
+    [matterNode, "openccu-loom-matter", { action: "status" }],
+    [areasNode, "openccu-loom-areas", { action: "list" }],
+    [backupsNode, "openccu-loom-backups", { action: "list" }],
+    [surfacesNode, "openccu-loom-surfaces", { action: "get" }],
   ];
 
   for (const [mod, type, extra] of cases) {

@@ -1,0 +1,20 @@
+{
+  "openccu-loom-areas": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Action",
+      "areaId": "Area ID"
+    },
+    "action": {
+      "list": "List",
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete",
+      "rooms-set": "Replace rooms"
+    },
+    "tip": {
+      "payload": "msg.payload carries the area object (create/update) or, for rooms-set, the full array of {central, room} objects; msg.areaId overrides the field."
+    }
+  }
+}

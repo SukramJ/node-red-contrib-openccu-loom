@@ -1,0 +1,16 @@
+{
+  "openccu-loom-surfaces": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Aktion"
+    },
+    "action": {
+      "get": "Registry lesen",
+      "set": "Registry aktualisieren"
+    },
+    "tip": {
+      "payload": "msg.payload liefert bei set den Body: embedded, embedded_scope (inside_ha | always) und profiles als vollständige Override-Menge je Profil."
+    }
+  }
+}

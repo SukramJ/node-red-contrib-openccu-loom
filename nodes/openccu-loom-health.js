@@ -9,6 +9,10 @@ const PATHS = {
   "config-effective": "/config/effective",
   "config-schema": "/config/schema",
   ccu: "/system/ccu",
+  // Read-only introspection surfaces of the running daemon.
+  wiring: "/diagnostics/wiring",
+  schedules: "/schedules",
+  i18n: "/i18n/entities",
 };
 
 module.exports = function (RED) {
@@ -29,7 +33,14 @@ module.exports = function (RED) {
 
       node.status({ fill: "yellow", shape: "ring", text: scope });
       try {
-        const res = await client.get(path);
+        // Only the vocabulary read takes a filter; every other scope is a
+        // bare GET, so the params are scoped to it rather than sent blindly.
+        let opts;
+        if (scope === "i18n") {
+          const locale = msg.locale || config.locale;
+          if (locale) opts = { params: { locale } };
+        }
+        const res = await client.get(path, opts);
         msg.payload = res.data;
         msg.statusCode = res.status;
         node.status({ fill: "green", shape: "dot", text: `OK (${res.status})` });

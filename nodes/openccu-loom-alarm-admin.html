@@ -12,7 +12,10 @@
       class: { value: "" },
       mode: { value: "" },
       code: { value: "" },
-      opticalOnly: { value: false }
+      opticalOnly: { value: false },
+      incidentId: { value: "" },
+      limit: { value: "" },
+      unenrolled: { value: false }
     },
     inputs: 1,
     outputs: 1,
@@ -55,6 +58,7 @@
         <option value="outputs" data-i18n="openccu-loom-alarm-admin.action.outputs"></option>
         <option value="outputs-set" data-i18n="openccu-loom-alarm-admin.action.outputs-set"></option>
         <option value="output-candidates" data-i18n="openccu-loom-alarm-admin.action.output-candidates"></option>
+        <option value="sensor-candidates" data-i18n="openccu-loom-alarm-admin.action.sensor-candidates"></option>
         <option value="remote-key-candidates" data-i18n="openccu-loom-alarm-admin.action.remote-key-candidates"></option>
         <option value="output-test" data-i18n="openccu-loom-alarm-admin.action.output-test"></option>
       </optgroup>
@@ -69,6 +73,15 @@
         <option value="walktest" data-i18n="openccu-loom-alarm-admin.action.walktest"></option>
         <option value="walktest-start" data-i18n="openccu-loom-alarm-admin.action.walktest-start"></option>
         <option value="walktest-stop" data-i18n="openccu-loom-alarm-admin.action.walktest-stop"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-alarm-admin.group.incidents">
+        <option value="incidents" data-i18n="openccu-loom-alarm-admin.action.incidents"></option>
+        <option value="incident" data-i18n="openccu-loom-alarm-admin.action.incident"></option>
+      </optgroup>
+      <optgroup data-i18n="[label]openccu-loom-alarm-admin.group.motion">
+        <option value="triggered-motion" data-i18n="openccu-loom-alarm-admin.action.triggered-motion"></option>
+        <option value="reset-motion" data-i18n="openccu-loom-alarm-admin.action.reset-motion"></option>
+        <option value="zone-reset-motion" data-i18n="openccu-loom-alarm-admin.action.zone-reset-motion"></option>
       </optgroup>
       <optgroup data-i18n="[label]openccu-loom-alarm-admin.group.operate">
         <option value="arm" data-i18n="openccu-loom-alarm-admin.action.arm"></option>
@@ -115,6 +128,18 @@
     <label for="node-input-opticalOnly"><i class="fa fa-lightbulb-o"></i> <span data-i18n="openccu-loom-alarm-admin.label.opticalOnly"></span></label>
     <input type="checkbox" id="node-input-opticalOnly" style="width:auto; vertical-align:top" />
   </div>
+  <div class="form-row">
+    <label for="node-input-incidentId"><i class="fa fa-exclamation-triangle"></i> <span data-i18n="openccu-loom-alarm-admin.label.incidentId"></span></label>
+    <input type="text" id="node-input-incidentId" placeholder="42" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-limit"><i class="fa fa-list-ol"></i> <span data-i18n="openccu-loom-alarm-admin.label.limit"></span></label>
+    <input type="text" id="node-input-limit" placeholder="50" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-unenrolled"><i class="fa fa-filter"></i> <span data-i18n="openccu-loom-alarm-admin.label.unenrolled"></span></label>
+    <input type="checkbox" id="node-input-unenrolled" style="width:auto; vertical-align:top" />
+  </div>
   <div class="form-tips">
     <span data-i18n="openccu-loom-alarm-admin.tip.payload"></span>
   </div>
@@ -150,10 +175,13 @@
   <ul>
     <li><b>zones</b> / <b>zone</b> — list, or read one by
       <code>msg.zoneId</code>.</li>
-    <li><b>zone-create</b> / <b>zone-update</b> — <code>msg.payload</code> is
-      the zone object and needs at least <code>{id, name}</code>;
-      <code>position</code> and <code>config</code> are optional. The update is
-      a replace, so send the complete object.</li>
+    <li><b>zone-create</b> — <code>msg.payload</code> is the zone object and
+      needs at least <code>{name}</code>; <code>position</code> and
+      <code>config</code> are optional. The daemon mints the id itself and
+      ignores one sent in the body.</li>
+    <li><b>zone-update</b> — <code>msg.payload</code> needs at least
+      <code>{id, name}</code>. The update is a replace, so send the complete
+      object.</li>
     <li><b>zone-delete</b> — removes the zone and its enrolments.</li>
   </ul>
 
@@ -168,6 +196,9 @@
     <li><b>output-candidates</b> — the channels that can back an output class;
       <code>msg.class</code> narrows them. Each row carries the device's rooms
       and functions, so a picker can group by them.</li>
+    <li><b>sensor-candidates</b> — the data points a zone can enrol as alarm
+      sensors. Tick <b>unenrolled only</b> (or set <code>msg.unenrolled</code>)
+      to keep just the ones no zone has taken yet.</li>
     <li><b>remote-key-candidates</b> — remote / wall-button key channels usable
       for remote-key code bindings.</li>
     <li><b>output-test</b> — fires the output <code>msg.outputId</code> briefly;
@@ -178,6 +209,26 @@
       <code>perms</code>, <code>enabled</code> are required; <code>pin</code>,
       <code>zones</code>, <code>binding</code>, <code>duress</code> and the
       validity window are optional).</li>
+  </ul>
+
+  <h3>Incidents</h3>
+  <ul>
+    <li><b>incidents</b> — <code>GET /alarm/incidents</code>, the incident
+      history of one zone. <code>msg.zoneId</code> is required (the history is
+      kept per zone); <code>msg.limit</code> caps the rows (1–500, default
+      50).</li>
+    <li><b>incident</b> — one incident by <code>msg.incidentId</code>, with its
+      full source ledger.</li>
+  </ul>
+
+  <h3>Latched motion detectors</h3>
+  <ul>
+    <li><b>triggered-motion</b> — the latched detectors a reset would clear.
+      Fleet-wide; <code>msg.zoneId</code> narrows it to one zone.</li>
+    <li><b>reset-motion</b> — clears every latched detector across all
+      zones.</li>
+    <li><b>zone-reset-motion</b> — clears only those of
+      <code>msg.zoneId</code>.</li>
   </ul>
 
   <h3>Walk test</h3>

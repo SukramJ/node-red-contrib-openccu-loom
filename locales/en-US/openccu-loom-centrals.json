@@ -4,7 +4,9 @@
       "name": "Name",
       "server": "Server",
       "action": "Action",
-      "centralName": "Central"
+      "centralName": "Central",
+      "longitude": "Longitude",
+      "latitude": "Latitude"
     },
     "action": {
       "list": "List",
@@ -12,7 +14,14 @@
       "create": "Create",
       "update": "Update",
       "delete": "Delete",
-      "reboot": "Reboot CCU"
+      "reboot": "Reboot CCU",
+      "poweroff": "Power off CCU",
+      "safe-mode": "Restart CCU in safe mode",
+      "recovery-mode": "Restart CCU in recovery mode",
+      "position": "Set astro position",
+      "addon-update": "Add-on update status",
+      "addon-update-check": "Check for add-on update",
+      "addon-update-install": "Install add-on update"
     }
   }
 }

@@ -11,7 +11,7 @@
     "type": "openccu-loom-server",
     "name": "openccu-loom localhost",
     "host": "127.0.0.1",
-    "port": 8080,
+    "port": 8119,
     "tls": false,
     "insecureTLS": false,
     "authMethod": "basic",

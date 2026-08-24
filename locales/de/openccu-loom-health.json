@@ -3,7 +3,8 @@
     "label": {
       "name": "Name",
       "server": "Server",
-      "scope": "Scope"
+      "scope": "Scope",
+      "locale": "Sprache (locale)"
     }
   }
 }

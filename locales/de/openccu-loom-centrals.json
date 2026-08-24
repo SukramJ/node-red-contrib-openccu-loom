@@ -4,7 +4,9 @@
       "name": "Name",
       "server": "Server",
       "action": "Aktion",
-      "centralName": "Central"
+      "centralName": "Central",
+      "longitude": "Längengrad",
+      "latitude": "Breitengrad"
     },
     "action": {
       "list": "Auflisten",
@@ -12,7 +14,14 @@
       "create": "Anlegen",
       "update": "Aktualisieren",
       "delete": "Löschen",
-      "reboot": "CCU neu starten"
+      "reboot": "CCU neu starten",
+      "poweroff": "CCU herunterfahren",
+      "safe-mode": "CCU im Safe-Mode starten",
+      "recovery-mode": "CCU im Recovery-Modus starten",
+      "position": "Astro-Position setzen",
+      "addon-update": "Add-on-Update-Status",
+      "addon-update-check": "Auf Add-on-Update prüfen",
+      "addon-update-install": "Add-on-Update installieren"
     }
   }
 }

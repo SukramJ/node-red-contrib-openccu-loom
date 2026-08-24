@@ -10,7 +10,10 @@
       "class": "Output class",
       "mode": "Arm mode",
       "code": "Code (PIN)",
-      "opticalOnly": "Optical only"
+      "opticalOnly": "Optical only",
+      "incidentId": "Incident ID",
+      "limit": "Limit",
+      "unenrolled": "Unenrolled only"
     },
     "group": {
       "status": "Status",
@@ -18,7 +21,9 @@
       "enrolment": "Sensors & outputs",
       "codes": "Codes",
       "walktest": "Walk test",
-      "operate": "Operate"
+      "operate": "Operate",
+      "incidents": "Incidents",
+      "motion": "Motion detectors"
     },
     "action": {
       "state": "State (all zones)",
@@ -49,7 +54,13 @@
       "disarm": "Disarm",
       "silence": "Silence",
       "acknowledge": "Acknowledge",
-      "silence-all": "Silence all"
+      "silence-all": "Silence all",
+      "sensor-candidates": "Sensor candidates",
+      "incidents": "Incidents of a zone",
+      "incident": "Get incident",
+      "triggered-motion": "Latched motion detectors",
+      "reset-motion": "Reset all motion detectors",
+      "zone-reset-motion": "Reset zone's motion detectors"
     },
     "tip": {
       "payload": "msg.payload supplies the write bodies (zone, code) resp. the complete list for sensors-set/outputs-set; msg.zoneId, msg.codeId, msg.outputId and msg.class override the fields."

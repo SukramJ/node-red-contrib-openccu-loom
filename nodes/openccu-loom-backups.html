@@ -1,0 +1,98 @@
+<script type="text/javascript">
+  RED.nodes.registerType("openccu-loom-backups", {
+    category: "openccu-loom",
+    color: "#A1C9F1",
+    defaults: {
+      name: { value: "" },
+      server: { value: "", type: "openccu-loom-server", required: true },
+      action: { value: "list" },
+      backupId: { value: "" },
+      centralName: { value: "" },
+      filename: { value: "" }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "db.svg",
+    label: function () {
+      return this.name || `backups ${this.action}`;
+    },
+    paletteLabel: "backups"
+  });
+</script>
+
+<script type="text/html" data-template-name="openccu-loom-backups">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="openccu-loom-backups.label.name"></span></label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-server"><i class="fa fa-server"></i> <span data-i18n="openccu-loom-backups.label.server"></span></label>
+    <input type="text" id="node-input-server" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-backups.label.action"></span></label>
+    <select id="node-input-action">
+      <option value="list" data-i18n="openccu-loom-backups.action.list"></option>
+      <option value="storage" data-i18n="openccu-loom-backups.action.storage"></option>
+      <option value="trigger" data-i18n="openccu-loom-backups.action.trigger"></option>
+      <option value="upload" data-i18n="openccu-loom-backups.action.upload"></option>
+      <option value="download" data-i18n="openccu-loom-backups.action.download"></option>
+      <option value="restore" data-i18n="openccu-loom-backups.action.restore"></option>
+      <option value="delete" data-i18n="openccu-loom-backups.action.delete"></option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-backupId"><i class="fa fa-key"></i> <span data-i18n="openccu-loom-backups.label.backupId"></span></label>
+    <input type="text" id="node-input-backupId" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-centralName"><i class="fa fa-hdd-o"></i> <span data-i18n="openccu-loom-backups.label.centralName"></span></label>
+    <input type="text" id="node-input-centralName" placeholder="Home" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-filename"><i class="fa fa-file-o"></i> <span data-i18n="openccu-loom-backups.label.filename"></span></label>
+    <input type="text" id="node-input-filename" placeholder="backup.sbk" />
+  </div>
+  <div class="form-tips">
+    <span data-i18n="openccu-loom-backups.tip.payload"></span>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="openccu-loom-backups">
+  <p>CCU backup archives (<code>/backups</code>): triggering a backup on the
+  CCU, listing and downloading what is stored locally, importing an archive
+  from elsewhere, and restoring one. Every verb requires admin.</p>
+
+  <h3>Reading</h3>
+  <ul>
+    <li><b>list</b> (default) — the locally stored backups.</li>
+    <li><b>storage</b> — <code>GET /backups/storage</code>: where those
+      archives are kept, and how much room is left.</li>
+  </ul>
+
+  <h3>Creating and importing</h3>
+  <ul>
+    <li><b>trigger</b> — asks the CCU for a fresh backup.
+      <code>msg.centralName</code> picks the central; omitted, the daemon backs
+      up the first registered one.</li>
+    <li><b>upload</b> — imports an externally-supplied archive.
+      <code>msg.payload</code> must be the <code>.sbk</code> bytes as a
+      <code>Buffer</code> — wire a <b>file in</b> node set to output a buffer
+      straight into this one. <code>msg.filename</code> names the part
+      (default <code>backup.sbk</code>).</li>
+  </ul>
+
+  <h3>Using a stored backup</h3>
+  <ul>
+    <li><b>download</b> — streams the archive <code>msg.backupId</code>.
+      <code>msg.payload</code> comes back as a <code>Buffer</code> of raw
+      <code>.sbk</code> bytes, ready for a <b>file out</b> node — not as
+      JSON.</li>
+    <li><b>restore</b> — restores <code>msg.backupId</code> onto its CCU. The
+      daemon answers 202 and applies it asynchronously; a 422 means the restore
+      was refused before anything reached any CCU (for instance because the
+      backup names no owning CCU and several are configured).</li>
+    <li><b>delete</b> — removes the stored archive. Irreversible, and it does
+      not touch anything on the CCU.</li>
+  </ul>
+</script>
