@@ -45,6 +45,55 @@ module.exports = function (RED) {
             if (!name) return done(new Error("centralName missing"));
             res = await client.post(`/system/ccu/${encodeURIComponent(name)}/reboot`);
             break;
+          case "poweroff":
+            if (!name) return done(new Error("centralName missing"));
+            res = await client.post(`/system/ccu/${encodeURIComponent(name)}/poweroff`);
+            break;
+          case "safe-mode":
+            if (!name) return done(new Error("centralName missing"));
+            res = await client.post(`/system/ccu/${encodeURIComponent(name)}/safe-mode`);
+            break;
+          case "recovery-mode":
+            if (!name) return done(new Error("centralName missing"));
+            res = await client.post(`/system/ccu/${encodeURIComponent(name)}/recovery-mode`);
+            break;
+          case "position": {
+            // The astro reference position. Both coordinates are required and
+            // the daemon range-checks them, so an incomplete pair is rejected
+            // here rather than sent as a half-written position.
+            if (!name) return done(new Error("centralName missing"));
+            const body = msg.payload && typeof msg.payload === "object" && !Array.isArray(msg.payload) ? msg.payload : {};
+            const pick = (fromBody, fromMsg, fromConfig) => {
+              for (const v of [fromBody, fromMsg, fromConfig]) if (v != null && v !== "") return v;
+              return null;
+            };
+            const longitude = pick(body.longitude, msg.longitude, config.longitude);
+            const latitude = pick(body.latitude, msg.latitude, config.latitude);
+            if (longitude == null || latitude == null) {
+              return done(new Error("position needs longitude and latitude"));
+            }
+            res = await client.put(`/system/ccu/${encodeURIComponent(name)}/position`, {
+              longitude: Number(longitude),
+              latitude: Number(latitude),
+            });
+            break;
+          }
+
+          // --- the daemon's own CCU add-on package ----------------------
+          // Only meaningful where the firmware-side installer exists
+          // (OpenCCU / RaspberryMatic); elsewhere `supported` is false and
+          // check/install answer 404.
+          case "addon-update":
+            res = await client.get("/system/addon-update");
+            break;
+          case "addon-update-check":
+            res = await client.post("/system/addon-update/check");
+            break;
+          case "addon-update-install":
+            // The daemon restarts as part of the install, so the 202 is the
+            // last thing this connection sees.
+            res = await client.post("/system/addon-update/install");
+            break;
           default:
             return done(new Error(`unknown action: ${action}`));
         }

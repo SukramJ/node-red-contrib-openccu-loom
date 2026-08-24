@@ -551,8 +551,8 @@ const CASES = [
     alarmAdminNode,
     "openccu-loom-alarm-admin",
     { action: "zone-create" },
-    { payload: { id: "zone-1", name: "Erdgeschoss", position: 1 } },
-    { method: "POST", url: "/alarm/zones", body: { id: "zone-1", name: "Erdgeschoss", position: 1 } },
+    { payload: { name: "Erdgeschoss", position: 1 } },
+    { method: "POST", url: "/alarm/zones", body: { name: "Erdgeschoss", position: 1 } },
   ],
   [
     "alarm-admin zone-update replaces the zone",
@@ -841,12 +841,12 @@ describe("API 3.x nodes: argument validation", function () {
       /msg\.active missing/,
     ],
     [
-      "alarm-admin zone-create without id and name",
+      "alarm-admin zone-create without a name",
       alarmAdminNode,
       "openccu-loom-alarm-admin",
       { action: "zone-create" },
-      { payload: { name: "no id" } },
-      /needs an object msg\.payload with at least \{id, name\}/,
+      { payload: { position: 1 } },
+      /needs an object msg\.payload with at least \{name\}/,
     ],
     [
       "alarm-admin sensors-set with a non-array payload",

@@ -1,0 +1,40 @@
+{
+  "openccu-loom-matter": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Action",
+      "fabricId": "Fabric ID",
+      "durationSeconds": "Window duration (s)"
+    },
+    "group": {
+      "status": "Status & topology",
+      "fabrics": "Fabrics",
+      "exposable": "Allowlist",
+      "commissioning": "Commissioning"
+    },
+    "action": {
+      "status": "Bridge status",
+      "compatibility": "Compatibility",
+      "endpoints": "Endpoints",
+      "mdns": "mDNS advertisement",
+      "sessions": "Open sessions",
+      "events": "Events",
+      "force-sync": "Re-assemble topology",
+      "fabrics": "List fabrics",
+      "fabric-delete": "Unpair fabric",
+      "factory-reset": "Remove all fabrics",
+      "exposable": "Read allowlist",
+      "exposable-set": "Set allowlist row",
+      "exposable-bulk": "Bulk-set allowlist",
+      "setup-payload": "Pairing code",
+      "commissioning-window": "Window state",
+      "commissioning-open": "Open window",
+      "commissioning-close": "Close window",
+      "share": "Share bridge"
+    },
+    "tip": {
+      "payload": "msg.payload carries the write bodies (exposable-set/-bulk) or the window body; msg.fabricId and msg.durationSeconds override the fields. factory-reset supplies the confirmation token itself."
+    }
+  }
+}

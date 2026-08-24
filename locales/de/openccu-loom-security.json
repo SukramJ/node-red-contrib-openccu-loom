@@ -1,0 +1,27 @@
+{
+  "openccu-loom-security": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Aktion",
+      "class": "Klasse",
+      "faultId": "Störungs-ID",
+      "ref": "Datenpunkt-Referenz",
+      "central": "Central",
+      "zone_id": "Zonen-ID",
+      "relevant": "Nur relevante",
+      "active": "Nur aktive"
+    },
+    "action": {
+      "state": "Domänenstatus",
+      "class": "Klasse lesen",
+      "faults": "Störungen auflisten",
+      "fault-acknowledge": "Störung quittieren",
+      "sources": "Quellen auflisten",
+      "source-override": "Klassifizierung überschreiben"
+    },
+    "tip": {
+      "payload": "msg.payload liefert bei source-override den Body (class, included, note); msg.class, msg.faultId, msg.ref, msg.central, msg.zone_id, msg.relevant und msg.active überschreiben die Felder."
+    }
+  }
+}

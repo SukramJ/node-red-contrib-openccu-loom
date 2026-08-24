@@ -5,7 +5,8 @@
     defaults: {
       name: { value: "" },
       server: { value: "", type: "openccu-loom-server", required: true },
-      scope: { value: "health" }
+      scope: { value: "health" },
+      locale: { value: "" }
     },
     inputs: 1,
     outputs: 1,
@@ -35,12 +36,33 @@
       <option value="config-effective">config/effective</option>
       <option value="config-schema">config/schema</option>
       <option value="ccu">system/ccu (readiness)</option>
+      <option value="wiring">diagnostics/wiring</option>
+      <option value="schedules">schedules</option>
+      <option value="i18n">i18n/entities</option>
     </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-locale"><i class="fa fa-language"></i> <span data-i18n="openccu-loom-health.label.locale"></span></label>
+    <input type="text" id="node-input-locale" placeholder="de" />
   </div>
 </script>
 
 <script type="text/html" data-help-name="openccu-loom-health">
-  <p>Fetches daemon diagnostics: <code>/info</code>, <code>/health</code>,
-  <code>/config</code>, <code>/config/effective</code> or
-  <code>/config/schema</code>.</p>
+  <p>Read-only daemon introspection. <code>msg.scope</code> overrides the
+  configured scope; the reply lands in <code>msg.payload</code>.</p>
+  <ul>
+    <li><b>health</b> (default), <b>info</b> — liveness and the build /
+      API-version handshake data.</li>
+    <li><b>config</b>, <b>config-effective</b>, <b>config-schema</b> — the
+      stored configuration, the values actually in force, and the schema
+      describing them.</li>
+    <li><b>ccu</b> — <code>GET /system/ccu</code>, per-central readiness.</li>
+    <li><b>wiring</b> — <code>GET /diagnostics/wiring</code>: the seams the
+      running daemon declared as it wired them (admin).</li>
+    <li><b>schedules</b> — <code>GET /schedules</code>: the fleet-wide overview
+      of devices carrying a week schedule.</li>
+    <li><b>i18n</b> — <code>GET /i18n/entities</code>: the daemon's
+      entity-name vocabulary. <code>msg.locale</code> (or the node's field)
+      picks the language; omitted, the daemon uses its own default.</li>
+  </ul>
 </script>

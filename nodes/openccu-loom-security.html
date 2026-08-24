@@ -1,0 +1,137 @@
+<script type="text/javascript">
+  RED.nodes.registerType("openccu-loom-security", {
+    category: "openccu-loom",
+    color: "#A1C9F1",
+    defaults: {
+      name: { value: "" },
+      server: { value: "", type: "openccu-loom-server", required: true },
+      action: { value: "state" },
+      class: { value: "" },
+      faultId: { value: "" },
+      ref: { value: "" },
+      central: { value: "" },
+      zone_id: { value: "" },
+      relevant: { value: false },
+      active: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "font-awesome/fa-life-ring",
+    label: function () {
+      return this.name || `security ${this.action}`;
+    },
+    paletteLabel: "security"
+  });
+</script>
+
+<script type="text/html" data-template-name="openccu-loom-security">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="openccu-loom-security.label.name"></span></label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-server"><i class="fa fa-server"></i> <span data-i18n="openccu-loom-security.label.server"></span></label>
+    <input type="text" id="node-input-server" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-security.label.action"></span></label>
+    <select id="node-input-action">
+      <option value="state" data-i18n="openccu-loom-security.action.state"></option>
+      <option value="class" data-i18n="openccu-loom-security.action.class"></option>
+      <option value="faults" data-i18n="openccu-loom-security.action.faults"></option>
+      <option value="fault-acknowledge" data-i18n="openccu-loom-security.action.fault-acknowledge"></option>
+      <option value="sources" data-i18n="openccu-loom-security.action.sources"></option>
+      <option value="source-override" data-i18n="openccu-loom-security.action.source-override"></option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-class"><i class="fa fa-filter"></i> <span data-i18n="openccu-loom-security.label.class"></span></label>
+    <select id="node-input-class">
+      <option value=""></option>
+      <option value="smoke">smoke</option>
+      <option value="water">water</option>
+      <option value="gas">gas</option>
+      <option value="co">co</option>
+      <option value="tamper">tamper</option>
+      <option value="battery">battery</option>
+      <option value="technical">technical</option>
+      <option value="intrusion">intrusion</option>
+      <option value="panic">panic</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-faultId"><i class="fa fa-exclamation-triangle"></i> <span data-i18n="openccu-loom-security.label.faultId"></span></label>
+    <input type="text" id="node-input-faultId" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-ref"><i class="fa fa-key"></i> <span data-i18n="openccu-loom-security.label.ref"></span></label>
+    <input type="text" id="node-input-ref" placeholder="Home|BidCos-RF|ABC0123456:1|STATE" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-central"><i class="fa fa-hdd-o"></i> <span data-i18n="openccu-loom-security.label.central"></span></label>
+    <input type="text" id="node-input-central" placeholder="Home" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-zone_id"><i class="fa fa-shield"></i> <span data-i18n="openccu-loom-security.label.zone_id"></span></label>
+    <input type="text" id="node-input-zone_id" placeholder="zone-1" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-relevant"><i class="fa fa-check"></i> <span data-i18n="openccu-loom-security.label.relevant"></span></label>
+    <input type="checkbox" id="node-input-relevant" style="width:auto; vertical-align:top" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-active"><i class="fa fa-bolt"></i> <span data-i18n="openccu-loom-security.label.active"></span></label>
+    <input type="checkbox" id="node-input-active" style="width:auto; vertical-align:top" />
+  </div>
+  <div class="form-tips">
+    <span data-i18n="openccu-loom-security.tip.payload"></span>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="openccu-loom-security">
+  <p>The Security &amp; Safety domain (<code>/security/…</code>): the daemon's
+  classified inventory of hazard and fault data points, the standing fault
+  ledger, and the operator overrides on top of the classifier.</p>
+
+  <p>Distinct from the <code>alarm</code> nodes: those operate the intrusion
+  panel, this one covers the wider hazard picture (smoke, water, gas, CO,
+  tamper, battery, technical) that the panel is only one consumer of.</p>
+
+  <h3>Actions</h3>
+  <ul>
+    <li><b>state</b> (default) — <code>GET /security</code>: the whole domain
+      state in one read.</li>
+    <li><b>class</b> — <code>GET /security/classes/{class}</code>: one hazard
+      or fault class with its full source list. <code>msg.class</code> picks
+      it and is required.</li>
+    <li><b>faults</b> — <code>GET /security/faults</code>, the standing fault
+      ledger.</li>
+    <li><b>fault-acknowledge</b> — marks the fault <code>msg.faultId</code> as
+      seen (operator). Acknowledging does not clear it; the fault stays until
+      its cause goes away.</li>
+    <li><b>sources</b> — <code>GET /security/sources</code>, the classified
+      data-point inventory. <code>msg.class</code>, <code>msg.central</code>
+      and <code>msg.zone_id</code> narrow it; <code>msg.relevant</code> and
+      <code>msg.active</code> are flags (set them truthy to switch them on —
+      the daemon accepts no other value).</li>
+    <li><b>source-override</b> — <code>PUT /security/sources/{ref}</code>
+      overrides the classifier's verdict for one data point.</li>
+  </ul>
+
+  <h3>Overriding a classification</h3>
+  <p><code>msg.ref</code> is the routing key
+  <code>&lt;central&gt;|&lt;interface_id&gt;|&lt;channel_address&gt;|&lt;parameter&gt;</code>
+  — take it verbatim from a <b>sources</b> row; the node URL-encodes it.</p>
+  <p><code>msg.payload</code> carries the override and every field is optional:
+  <code>class</code> reclassifies (empty keeps the classifier's verdict),
+  <code>included: false</code> removes the source from every aggregate, and
+  <code>note</code> records why. Omitting <code>included</code> leaves
+  inclusion unchanged, so a request that only names a class reclassifies and
+  never excludes.</p>
+
+  <h3>Classes</h3>
+  <p><code>smoke</code>, <code>water</code>, <code>gas</code>, <code>co</code>,
+  <code>tamper</code>, <code>battery</code>, <code>technical</code>,
+  <code>intrusion</code>, <code>panic</code>. An unknown value is rejected by
+  the node before the call goes out.</p>
+</script>

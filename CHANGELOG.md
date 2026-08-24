@@ -3,6 +3,101 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] - 2026-08-24
+
+Tracks the daemon's API 7.12.0 (openccu-loom 0.64.2).
+
+### Changed (breaking)
+- **Supported API major is now `7`** (`SUPPORTED_API_MAJOR`), up from `3`.
+  Against a daemon still reporting API `3.x`–`6.x` the server node logs its
+  one-time mismatch warning; calls are not blocked.
+- **`alarm admin` `zone-create` no longer requires `id` in `msg.payload`.**
+  The daemon mints the zone id itself (`AlarmZoneCreate` requires only
+  `name`) and ignores one sent in the body, so the node rejected valid
+  REST-conventional payloads. `msg.payload` now needs at least `{name}`;
+  a payload that still carries `id` is accepted, but the id is never
+  honoured. `zone-update` is unchanged and still needs `{id, name}`.
+
+### Added
+- Five new nodes for the REST surfaces the daemon gained since API 3.1:
+  - **`security`** — the Security & Safety domain (`/security/…`): domain
+    `state`, one hazard `class`, the standing `faults` ledger,
+    `fault-acknowledge`, the classified `sources` inventory (filtered by
+    class / central / zone and the `relevant` / `active` flags) and
+    `source-override`, which overrides the classifier for one data point.
+  - **`matter`** — the Matter bridge (`/matter/…`), covering the whole
+    family rather than only the new members: `status`, `compatibility`,
+    `endpoints`, `mdns`, `sessions`, `events`, `force-sync`; fabric
+    listing, unpairing and `factory-reset`; the `exposable` allowlist
+    (single and bulk); and the commissioning verbs incl. `share` and the
+    setup payload.
+  - **`areas`** — operator-defined room groupings above the CCU's own
+    rooms (`/areas`): `list`, `create`, `update`, `delete` and
+    `rooms-set` (a replace — the full `{central, room}` array).
+  - **`backups`** — CCU backup archives (`/backups`), again the whole
+    family: `list`, `storage`, `trigger`, `upload`, `download`, `restore`
+    and `delete`.
+  - **`surfaces`** — the config-UI surface registry (`/ui/surfaces`):
+    `get` and `set` (the `embedded` master toggle, its scope, and the
+    per-profile visibility overrides).
+- **`alarm admin`** gained `incidents` and `incident` (the per-zone
+  incident history and one incident with its full source ledger),
+  `sensor-candidates` (`msg.unenrolled` narrows to the data points no
+  zone has taken), and the latched-motion verbs `triggered-motion`,
+  `reset-motion` (all zones) and `zone-reset-motion` (one zone).
+- **`centrals`** gained the CCU host verbs `poweroff`, `safe-mode` and
+  `recovery-mode` alongside the existing `reboot`, the astro-position
+  write `position` (`msg.longitude` / `msg.latitude`, a `msg.payload`
+  object, or the node's own fields), and the daemon's add-on self-update
+  trio `addon-update`, `addon-update-check` and `addon-update-install`.
+- **`health`** gained the read-only scopes `wiring`
+  (`/diagnostics/wiring`), `schedules` (`/schedules`) and `i18n`
+  (`/i18n/entities`, with an optional `msg.locale`).
+- Contract test `test/api7-surface.test.js` pinning the exact request
+  (method, URL incl. query string, body) of every action above, its
+  argument validation, and the two binary backup transfers.
+- Six example flows for the new surface: `06-security-faults.json`,
+  `07-matter-commissioning.json`, `08-areas-rooms.json`,
+  `09-backup-download.json`, `10-alarm-incidents.json` and
+  `11-system-maintenance.json`.
+- Packaging test `test/examples.test.js` checking every shipped flow:
+  valid JSON, unique ids, wires and tab references that resolve, a server
+  config node in the same flow, the documented default port, and — the
+  two that catch a silent typo — that each openccu-loom node sets only
+  properties its editor declares in `defaults` and only `action` / `scope`
+  values its editor actually offers.
+
+### Fixed
+- **Four example flows still used the pre-0.3.0 default port 8080.**
+  `01`–`04` were never updated when the daemon moved to the single port
+  8119, so importing them produced a server node that could not connect.
+  The new packaging test pins the port so they cannot drift again.
+- **The HTTP client corrupted binary responses.** Every reply went
+  through `res.text()`, which decodes bytes as UTF-8 — fine for JSON,
+  destructive for a backup `.sbk`. A `responseType: "buffer"` request
+  now returns the untouched bytes as a `Buffer`; error replies still go
+  through the JSON path so their problem+json body survives. Used by
+  `backups` `download`.
+
+### Changed
+- The HTTP client can send `multipart/form-data`: a `FormData` body is
+  passed to undici untouched and keeps the `Content-Type` undici mints,
+  because only it knows the boundary. `lib/client.js` re-exports undici's
+  `FormData` — undici's `fetch` recognises only its own class, and a
+  global one would silently be stringified into a `text/plain` body.
+  Used by `backups` `upload`.
+- Vendored spec snapshots in `spec/` refreshed from the daemon repo
+  (`openapi.yaml` 3.1.0 → 7.12.0, `wsapi.json` 168 → 181 commands).
+  Despite four major bumps the refresh was additive for paths and WS
+  commands alike: 36 REST paths and 13 broadcasts were added and none
+  removed. Three response/request bodies this package touches did change
+  — `POST /alarm/zones` dropped `id` (see above), and `GET
+  /alarm-messages` and `GET /service-messages` reshaped their rows. The
+  `messages` node passes those payloads through untouched, so only flows
+  reading the dropped fields (`address`, `device_name`, `last_trigger`,
+  `rooms`, `state_value` on alarm messages; `description`, `priority` on
+  service messages) need adjusting.
+
 ## [0.4.0] - 2026-07-28
 
 Tracks the daemon's API 3.1.0 (openccu-loom 0.49.2).

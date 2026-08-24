@@ -1,0 +1,27 @@
+{
+  "openccu-loom-security": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Action",
+      "class": "Class",
+      "faultId": "Fault ID",
+      "ref": "Data point ref",
+      "central": "Central",
+      "zone_id": "Zone ID",
+      "relevant": "Relevant only",
+      "active": "Active only"
+    },
+    "action": {
+      "state": "Domain state",
+      "class": "Get class",
+      "faults": "List faults",
+      "fault-acknowledge": "Acknowledge fault",
+      "sources": "List sources",
+      "source-override": "Override classification"
+    },
+    "tip": {
+      "payload": "msg.payload carries the source-override body (class, included, note); msg.class, msg.faultId, msg.ref, msg.central, msg.zone_id, msg.relevant and msg.active override the fields."
+    }
+  }
+}

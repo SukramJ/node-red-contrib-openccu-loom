@@ -48,7 +48,7 @@ against the entered host.
 
 At deploy (and on demand, cached for 60 s), the server config node performs
 `GET /info` and records the daemon's `api_version` and `capabilities`. This
-package supports API major `3`; a daemon reporting a different major gets a
+package supports API major `7`; a daemon reporting a different major gets a
 one-time `node.warn`, but calls still go through — a major mismatch is
 advisory, not a hard stop. Command nodes that depend on an optional daemon
 feature call the config node's async `hasCapability("token")` (e.g.
@@ -76,6 +76,12 @@ becomes `msg.payload`; `msg.topic`, `msg.eventType`, `msg.kind`
 (`initial|change|refresh`) and `msg.seq` are populated from the envelope.
 
 * Topic filter: comma-separated patterns, e.g. `device.*,hub.*,central.*,matter.*`.
+  API 7 added the broadcast families `security.*` (state, zone, class and
+  fault changes plus notifications), `schedules.changed`,
+  `addon_update.state_changed`, `daemon_status.changed`,
+  `device.availability_changed`, `device.metadata_changed` and
+  `hub.program_changed` — the filter is free text, so they need no node
+  change to subscribe to.
 * Live changes via `msg.op = "subscribe"|"unsubscribe"` and `msg.topics`.
 * `msg.op = "reauth"` with `msg.token` rotates the bearer credential on the open connection.
 * **Resume**: the node tracks the last seen `seq` and asks the daemon to replay
@@ -92,7 +98,7 @@ becomes `msg.payload`; `msg.topic`, `msg.eventType`, `msg.kind`
 
 ### `ws call` (WebSocket RPC)
 
-Dispatches a WebSocket command (`assets/wsapi.json`, currently 168 commands) over
+Dispatches a WebSocket command (`assets/wsapi.json`, currently 181 commands) over
 the shared connection of the configured server. The frame is
 `{op:"call", id:<auto>, command, args}` and the matching `result` is correlated
 by id. Common targets: `ccu.get_signal_quality`, `paramset.form_schema`,
@@ -136,8 +142,16 @@ capability.
   `outputs-set` (the PUT replaces the whole enrolment set, so `msg.payload`
   must be the full array; an empty one unenrols everything),
   `output-candidates` (`msg.class` narrows by output class),
-  `remote-key-candidates`, `output-test` (`msg.opticalOnly`), and the code CRUD
+  `sensor-candidates` (`msg.unenrolled` keeps only the data points no zone has
+  taken yet), `remote-key-candidates`, `output-test` (`msg.opticalOnly`),
+  and the code CRUD
   `codes` / `code` / `code-create` / `code-update` / `code-delete`.
+* **Incidents** — `incidents` (the per-zone history; `msg.zoneId` is required,
+  `msg.limit` caps the rows) and `incident` (one incident by
+  `msg.incidentId`, with its full source ledger).
+* **Latched motion detectors** — `triggered-motion` (fleet-wide, or one zone
+  via `msg.zoneId`), `reset-motion` (clears every zone) and
+  `zone-reset-motion` (clears one).
 * **Walk test** — `walktest-start`, `walktest-stop`, `walktest` (status). Only
   reachable over REST; the WebSocket exposes the status alone.
 * **Operating** — `arm` (`msg.mode`, plus `msg.force`, `msg.skipDelay`,
@@ -259,14 +273,99 @@ after a `replay_lost` control frame from the events node.
 
 ### `health`
 
-Diagnostics: `/info`, `/health`, `/config`, `/config/effective`, `/config/schema`,
-`/system/ccu` (`msg.scope = "ccu"` — per-central readiness/metadata).
+Read-only daemon introspection, picked by `msg.scope`: `/info`, `/health`,
+`/config`, `/config/effective`, `/config/schema`, `/system/ccu` (`ccu` —
+per-central readiness/metadata), `/diagnostics/wiring` (`wiring` — the seams
+the running daemon declared as it wired them), `/schedules` (`schedules` — the
+fleet-wide overview of devices carrying a week schedule) and `/i18n/entities`
+(`i18n` — the entity-name vocabulary; `msg.locale` picks the language).
 
 ### `centrals`
 
 Multi-CCU registry CRUD (`/centrals`, `/centrals/{name}`). Mutating calls
-require admin role. Action `reboot` (`POST /system/ccu/{central}/reboot`)
-reboots the CCU itself, not the daemon.
+require admin role.
+
+* **CCU host control** — `reboot`, `poweroff`, `safe-mode` and
+  `recovery-mode` act on the CCU itself, not the daemon; each answers 202 and
+  the CCU is unreachable for a while afterwards.
+* **Astro position** — `position` (`PUT /system/ccu/{central}/position`) takes
+  `msg.longitude` / `msg.latitude`, a `msg.payload` object with the same two
+  keys, or the node's own fields.
+* **Add-on self-update** — `addon-update` (status), `addon-update-check` and
+  `addon-update-install` drive the daemon's own CCU add-on package. Only
+  meaningful where the firmware-side installer exists (OpenCCU /
+  RaspberryMatic); elsewhere `supported` is false and the two verbs answer 404.
+  The daemon restarts as part of an install.
+
+### `security`
+
+The Security & Safety domain (`/security/…`) — the classified inventory of
+hazard and fault data points that the alarm panel is only one consumer of.
+
+* `state` (`GET /security`), `class` (one hazard class by `msg.class`),
+  `faults` (the standing ledger) and `fault-acknowledge` (`msg.faultId`).
+* `sources` — the classified data-point inventory; `msg.class`,
+  `msg.central` and `msg.zone_id` narrow it, `msg.relevant` and `msg.active`
+  are flags.
+* `source-override` — `PUT /security/sources/{ref}` overrides the classifier
+  for one data point. `msg.ref` is the routing key
+  `<central>|<interface_id>|<channel_address>|<parameter>` taken verbatim from
+  a `sources` row; `msg.payload` carries `class`, `included` and `note`, all
+  optional.
+
+Classes: `smoke`, `water`, `gas`, `co`, `tamper`, `battery`, `technical`,
+`intrusion`, `panic`. An unknown value is rejected before the call goes out.
+
+### `matter`
+
+The Matter bridge surface (`/matter/…`).
+
+* **Status and topology** — `status`, `compatibility`, `endpoints`, `mdns`,
+  `sessions`, `events`, and `force-sync` to re-assemble the exposed topology.
+* **Fabrics** — `fabrics`, `fabric-delete` (`msg.fabricId`) and
+  `factory-reset`, which removes every fabric (destructive; the node supplies
+  the daemon's required confirmation token itself).
+* **Allowlist** — `exposable`, `exposable-set` (one row) and `exposable-bulk`
+  (a bare array in `msg.payload`, or `{items: [...]}`).
+* **Commissioning** — `setup-payload` (QR + manual code),
+  `commissioning-window` (state), `commissioning-open`, `share` (a second
+  ecosystem) and `commissioning-close`. Both open verbs take an optional
+  `msg.durationSeconds` (180–900, default 900).
+
+### `areas`
+
+Operator-defined room groupings above the CCU's own rooms — a floor, a shed, a
+terrace roof (`/areas`). Distinct from alarm zones: areas group rooms for
+presentation, zones partition the alarm system.
+
+`list`, `create` (`msg.payload` needs at least `{name}`; the daemon mints the
+id), `update` (`{id, name}`), `delete` and `rooms-set`. The last is a replace:
+`msg.payload` must be the full array of `{central, room}` objects, and an
+empty one clears the area.
+
+### `backups`
+
+CCU backup archives (`/backups`). Every verb requires admin.
+
+* `list`, `storage` (where archives are kept).
+* `trigger` — asks the CCU for a fresh backup; `msg.centralName` picks the
+  central, omitted the daemon backs up the first registered one.
+* `upload` — imports an archive. `msg.payload` must be the `.sbk` bytes as a
+  `Buffer` (wire a **file in** node set to buffer output straight into it);
+  `msg.filename` names the multipart part.
+* `download` — streams `msg.backupId`; `msg.payload` comes back as a raw
+  `Buffer`, ready for a **file out** node.
+* `restore` — dispatched asynchronously (202); a 422 means the restore was
+  refused before anything reached a CCU.
+* `delete` — removes the stored archive, not anything on the CCU.
+
+### `surfaces`
+
+The config-UI surface registry (`/ui/surfaces`): `get` reads it, `set` writes
+`embedded` (the master toggle), `embedded_scope` (`inside_ha` or `always`) and
+`profiles` — the full override set per profile, as
+`{profile: {surface: "visible" | "hidden"}}`. Every field is optional and an
+omitted one is left untouched.
 
 ### `api`
 
@@ -276,13 +375,31 @@ Generic REST call against the openccu-loom API. Path is relative to
 
 ## Examples
 
-Five importable example flows ship under `examples/`:
+Eleven importable example flows ship under `examples/`. Import them from the
+palette menu (**Import → Examples → node-red-contrib-openccu-loom**); each
+brings its own server config node pointing at `127.0.0.1:8119`, so adjust the
+host and credentials before deploying.
 
 - `01-event-stream.json` — subscribe to the event stream, auto-resync on `replay_lost`.
 - `02-set-value.json` — periodically write a thermostat set point with Idempotency-Key.
 - `03-sysvar-and-program.json` — set a sysvar, then trigger a program.
 - `04-ws-call.json` — dispatch a WS-RPC (`ccu.get_signal_quality`).
 - `05-alarm-panel.json` — poll every alarm zone's state on a schedule.
+- `06-security-faults.json` — read the standing fault ledger, acknowledge each
+  open fault individually, and query the classified sources with filters.
+- `07-matter-commissioning.json` — open a Matter commissioning window, fetch
+  the pairing code, close the window again; plus the mDNS diagnostic for when
+  no controller finds the bridge.
+- `08-areas-rooms.json` — create an area and assign its rooms, threading the
+  daemon-minted id from the create reply into the `rooms-set` call.
+- `09-backup-download.json` — trigger a nightly CCU backup and store the
+  archive as a file (the download arrives as a raw `Buffer`), plus the reverse
+  path: read a `.sbk` from disk and import it.
+- `10-alarm-incidents.json` — a zone's incident history down to the source
+  ledger of the newest one, and the latched-motion inspect/reset pair.
+- `11-system-maintenance.json` — check for an add-on update and install it only
+  when one is offered, set the CCU's astro position, and read/write the
+  config-UI surface registry.
 
 ## Localisation
 

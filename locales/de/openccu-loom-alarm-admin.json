@@ -10,7 +10,10 @@
       "class": "Ausgangsklasse",
       "mode": "Schärfungsmodus",
       "code": "Code (PIN)",
-      "opticalOnly": "Nur optisch testen"
+      "opticalOnly": "Nur optisch testen",
+      "incidentId": "Vorfall-ID",
+      "limit": "Limit",
+      "unenrolled": "Nur nicht zugeordnete"
     },
     "group": {
       "status": "Status",
@@ -18,7 +21,9 @@
       "enrolment": "Sensoren & Ausgänge",
       "codes": "Codes",
       "walktest": "Walktest",
-      "operate": "Bedienen"
+      "operate": "Bedienen",
+      "incidents": "Vorfälle",
+      "motion": "Bewegungsmelder"
     },
     "action": {
       "state": "Status (alle Zonen)",
@@ -49,7 +54,13 @@
       "disarm": "Unscharfschalten",
       "silence": "Stummschalten",
       "acknowledge": "Quittieren",
-      "silence-all": "Alle stummschalten"
+      "silence-all": "Alle stummschalten",
+      "sensor-candidates": "Mögliche Sensoren",
+      "incidents": "Vorfälle einer Zone",
+      "incident": "Vorfall lesen",
+      "triggered-motion": "Ausgelöste Melder",
+      "reset-motion": "Alle Melder zurücksetzen",
+      "zone-reset-motion": "Melder der Zone zurücksetzen"
     },
     "tip": {
       "payload": "msg.payload liefert die Schreib-Bodies (Zone, Code) bzw. die vollständige Liste bei sensors-set/outputs-set; msg.zoneId, msg.codeId, msg.outputId und msg.class überschreiben die Felder."

@@ -1,0 +1,20 @@
+{
+  "openccu-loom-areas": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Aktion",
+      "areaId": "Bereichs-ID"
+    },
+    "action": {
+      "list": "Auflisten",
+      "create": "Anlegen",
+      "update": "Aktualisieren",
+      "delete": "Löschen",
+      "rooms-set": "Räume ersetzen"
+    },
+    "tip": {
+      "payload": "msg.payload liefert das Bereichsobjekt (create/update) bzw. bei rooms-set die vollständige Liste aus {central, room}-Objekten; msg.areaId überschreibt das Feld."
+    }
+  }
+}

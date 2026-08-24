@@ -1,0 +1,134 @@
+[
+  {
+    "id": "ex8.tab",
+    "type": "tab",
+    "label": "openccu-loom – Bereiche + Räume",
+    "disabled": false,
+    "info": "Legt einen Bereich an und weist ihm anschließend Räume zu.\n\nDer Kniff steckt im change-Node in der Mitte: die Bereichs-ID vergibt der Daemon selbst (`POST /areas` verlangt nur `{name}`). Erst die Antwort enthält sie, und aus ihr wird `msg.areaId` für den zweiten Schritt gesetzt.\n\n`rooms-set` ist ein Ersetzen, kein Ergänzen: `msg.payload` muss die vollständige Raumliste sein, ein leeres Array leert den Bereich. Ein Raum gehört zu höchstens einem Bereich.\n\nBereiche sind nicht dasselbe wie Alarmzonen — sie gruppieren Räume für die Darstellung, Zonen partitionieren die Alarmanlage."
+  },
+  {
+    "id": "ex8.server",
+    "type": "openccu-loom-server",
+    "name": "openccu-loom localhost",
+    "host": "127.0.0.1",
+    "port": 8119,
+    "tls": false,
+    "insecureTLS": false,
+    "authMethod": "basic",
+    "timeout": 10000
+  },
+  {
+    "id": "ex8.inject",
+    "type": "inject",
+    "z": "ex8.tab",
+    "name": "Bereich \"Obergeschoss\"",
+    "props": [{ "p": "payload" }],
+    "repeat": "",
+    "once": false,
+    "payload": "{\"name\":\"Obergeschoss\",\"position\":2}",
+    "payloadType": "json",
+    "x": 190,
+    "y": 120,
+    "wires": [["ex8.create"]]
+  },
+  {
+    "id": "ex8.create",
+    "type": "openccu-loom-areas",
+    "z": "ex8.tab",
+    "name": "Bereich anlegen",
+    "server": "ex8.server",
+    "action": "create",
+    "areaId": "",
+    "x": 430,
+    "y": 120,
+    "wires": [["ex8.thread"]]
+  },
+  {
+    "id": "ex8.thread",
+    "type": "change",
+    "z": "ex8.tab",
+    "name": "ID übernehmen, Räume setzen",
+    "rules": [
+      { "t": "set", "p": "areaId", "pt": "msg", "to": "payload.id", "tot": "msg" },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "[{\"central\":\"Home\",\"room\":\"Schlafzimmer\"},{\"central\":\"Home\",\"room\":\"Bad oben\"}]",
+        "tot": "json"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 700,
+    "y": 120,
+    "wires": [["ex8.rooms"]]
+  },
+  {
+    "id": "ex8.rooms",
+    "type": "openccu-loom-areas",
+    "z": "ex8.tab",
+    "name": "Räume ersetzen",
+    "server": "ex8.server",
+    "action": "rooms-set",
+    "areaId": "",
+    "x": 970,
+    "y": 120,
+    "wires": [["ex8.debug"]]
+  },
+  {
+    "id": "ex8.debug",
+    "type": "debug",
+    "z": "ex8.tab",
+    "name": "Bereich mit Räumen",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "complete": "true",
+    "x": 1190,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "ex8.injectList",
+    "type": "inject",
+    "z": "ex8.tab",
+    "name": "Bereiche auflisten",
+    "props": [{ "p": "payload" }],
+    "repeat": "",
+    "once": false,
+    "payload": "",
+    "payloadType": "date",
+    "x": 170,
+    "y": 220,
+    "wires": [["ex8.list"]]
+  },
+  {
+    "id": "ex8.list",
+    "type": "openccu-loom-areas",
+    "z": "ex8.tab",
+    "name": "alle Bereiche",
+    "server": "ex8.server",
+    "action": "list",
+    "areaId": "",
+    "x": 400,
+    "y": 220,
+    "wires": [["ex8.debugList"]]
+  },
+  {
+    "id": "ex8.debugList",
+    "type": "debug",
+    "z": "ex8.tab",
+    "name": "Bereiche",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "complete": "true",
+    "x": 610,
+    "y": 220,
+    "wires": []
+  }
+]

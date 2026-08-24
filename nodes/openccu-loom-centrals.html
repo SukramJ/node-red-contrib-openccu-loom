@@ -6,7 +6,9 @@
       name: { value: "" },
       server: { value: "", type: "openccu-loom-server", required: true },
       action: { value: "list" },
-      centralName: { value: "" }
+      centralName: { value: "" },
+      longitude: { value: "" },
+      latitude: { value: "" }
     },
     inputs: 1,
     outputs: 1,
@@ -36,11 +38,26 @@
       <option value="update" data-i18n="openccu-loom-centrals.action.update"></option>
       <option value="delete" data-i18n="openccu-loom-centrals.action.delete"></option>
       <option value="reboot" data-i18n="openccu-loom-centrals.action.reboot"></option>
+      <option value="poweroff" data-i18n="openccu-loom-centrals.action.poweroff"></option>
+      <option value="safe-mode" data-i18n="openccu-loom-centrals.action.safe-mode"></option>
+      <option value="recovery-mode" data-i18n="openccu-loom-centrals.action.recovery-mode"></option>
+      <option value="position" data-i18n="openccu-loom-centrals.action.position"></option>
+      <option value="addon-update" data-i18n="openccu-loom-centrals.action.addon-update"></option>
+      <option value="addon-update-check" data-i18n="openccu-loom-centrals.action.addon-update-check"></option>
+      <option value="addon-update-install" data-i18n="openccu-loom-centrals.action.addon-update-install"></option>
     </select>
   </div>
   <div class="form-row">
     <label for="node-input-centralName"><i class="fa fa-key"></i> <span data-i18n="openccu-loom-centrals.label.centralName"></span></label>
     <input type="text" id="node-input-centralName" placeholder="Home" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-longitude"><i class="fa fa-map-marker"></i> <span data-i18n="openccu-loom-centrals.label.longitude"></span></label>
+    <input type="text" id="node-input-longitude" placeholder="8.6821" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-latitude"><i class="fa fa-map-marker"></i> <span data-i18n="openccu-loom-centrals.label.latitude"></span></label>
+    <input type="text" id="node-input-latitude" placeholder="50.1109" />
   </div>
 </script>
 
@@ -49,7 +66,34 @@
   <code>/centrals/{name}</code>. Mutating calls require admin.</p>
   <p><code>msg.payload</code> for <code>create</code>/<code>update</code> must be
   a <code>CentralRow</code> object.</p>
-  <p><b>reboot</b> — <code>POST /system/ccu/{central}/reboot</code> reboots the
-  CCU itself (admin, not the daemon). The daemon answers 202 and the CCU is
-  unreachable for a while afterwards.</p>
+  <h3>CCU host control</h3>
+  <p>All four act on the CCU itself (admin, not the daemon); the daemon answers
+  202 and the CCU is unreachable for a while afterwards.</p>
+  <ul>
+    <li><b>reboot</b> — <code>POST /system/ccu/{central}/reboot</code>.</li>
+    <li><b>poweroff</b> — shuts the CCU host down; it stays off until someone
+      powers it back on.</li>
+    <li><b>safe-mode</b> — restarts the CCU into safe mode.</li>
+    <li><b>recovery-mode</b> — restarts the CCU into its recovery system.</li>
+  </ul>
+
+  <h3>Astro position</h3>
+  <p><b>position</b> — <code>PUT /system/ccu/{central}/position</code> sets the
+  CCU's astro reference position. Both coordinates are required: take them from
+  the node's fields, from <code>msg.longitude</code>/<code>msg.latitude</code>,
+  or from a <code>msg.payload</code> object carrying the same two keys
+  (<code>longitude</code> −180…180, <code>latitude</code> −90…90).</p>
+
+  <h3>Add-on self-update</h3>
+  <p>The daemon's own CCU add-on package. Only meaningful on platforms with the
+  firmware-side installer (OpenCCU / RaspberryMatic); elsewhere
+  <code>supported</code> is false and the two verbs answer 404.</p>
+  <ul>
+    <li><b>addon-update</b> — <code>GET /system/addon-update</code>, the
+      current self-update status.</li>
+    <li><b>addon-update-check</b> — re-checks for a newer release.</li>
+    <li><b>addon-update-install</b> — downloads, verifies and installs it. The
+      daemon restarts as part of the install, so the 202 is the last thing this
+      connection sees.</li>
+  </ul>
 </script>

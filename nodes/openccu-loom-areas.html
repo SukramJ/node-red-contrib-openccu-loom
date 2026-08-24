@@ -1,0 +1,75 @@
+<script type="text/javascript">
+  RED.nodes.registerType("openccu-loom-areas", {
+    category: "openccu-loom",
+    color: "#A1C9F1",
+    defaults: {
+      name: { value: "" },
+      server: { value: "", type: "openccu-loom-server", required: true },
+      action: { value: "list" },
+      areaId: { value: "" }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "font-awesome/fa-object-group",
+    label: function () {
+      return this.name || `areas ${this.action}`;
+    },
+    paletteLabel: "areas"
+  });
+</script>
+
+<script type="text/html" data-template-name="openccu-loom-areas">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="openccu-loom-areas.label.name"></span></label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-server"><i class="fa fa-server"></i> <span data-i18n="openccu-loom-areas.label.server"></span></label>
+    <input type="text" id="node-input-server" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-exchange"></i> <span data-i18n="openccu-loom-areas.label.action"></span></label>
+    <select id="node-input-action">
+      <option value="list" data-i18n="openccu-loom-areas.action.list"></option>
+      <option value="create" data-i18n="openccu-loom-areas.action.create"></option>
+      <option value="update" data-i18n="openccu-loom-areas.action.update"></option>
+      <option value="delete" data-i18n="openccu-loom-areas.action.delete"></option>
+      <option value="rooms-set" data-i18n="openccu-loom-areas.action.rooms-set"></option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-areaId"><i class="fa fa-key"></i> <span data-i18n="openccu-loom-areas.label.areaId"></span></label>
+    <input type="text" id="node-input-areaId" />
+  </div>
+  <div class="form-tips">
+    <span data-i18n="openccu-loom-areas.tip.payload"></span>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="openccu-loom-areas">
+  <p>Operator-defined room groupings above the CCU's own rooms — a floor, a
+  shed, a terrace roof — via <code>/areas</code>. Distinct from alarm zones:
+  areas group rooms for presentation, zones partition the alarm system.</p>
+
+  <p>Rooms are <code>(central, room)</code> pairs, and a room belongs to at
+  most one area. Mutating calls require operator.</p>
+
+  <h3>Actions</h3>
+  <ul>
+    <li><b>list</b> (default) — <code>GET /areas</code>: every area with its
+      assigned rooms.</li>
+    <li><b>create</b> — <code>msg.payload</code> needs at least
+      <code>{name}</code>; <code>position</code> (manual sort order, ties by
+      name) is optional. The daemon mints the id and ignores one sent in the
+      body.</li>
+    <li><b>update</b> — renames or reorders the area <code>msg.areaId</code>.
+      <code>msg.payload</code> needs <code>{id, name}</code>. Rooms are
+      read-only here; replace them with <b>rooms-set</b>.</li>
+    <li><b>delete</b> — removes the area and clears its room assignments. The
+      rooms themselves stay on their central.</li>
+    <li><b>rooms-set</b> — <code>PUT /areas/{id}/rooms</code>.
+      <code>msg.payload</code> must be the <em>full</em> array of
+      <code>{central, room}</code> objects; it replaces the existing set, and
+      an empty array clears the area.</li>
+  </ul>
+</script>

@@ -1,0 +1,24 @@
+{
+  "openccu-loom-backups": {
+    "label": {
+      "name": "Name",
+      "server": "Server",
+      "action": "Aktion",
+      "backupId": "Backup-ID",
+      "centralName": "Central",
+      "filename": "Dateiname"
+    },
+    "action": {
+      "list": "Auflisten",
+      "storage": "Speicherort",
+      "trigger": "Backup auslösen",
+      "upload": "Backup importieren",
+      "download": "Backup herunterladen",
+      "restore": "Backup einspielen",
+      "delete": "Backup löschen"
+    },
+    "tip": {
+      "payload": "Bei upload enthält msg.payload das .sbk-Archiv als Buffer; bei download kommt es als Buffer zurück. msg.backupId, msg.centralName und msg.filename überschreiben die Felder."
+    }
+  }
+}
