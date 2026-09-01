@@ -1,10 +1,10 @@
 {
- "version": "1.1",
+ "version": "1.9",
  "envelope": {
   "description": "Shape of every WebSocket frame the daemon emits — both command replies and broadcasts. The `payload` member is replaced per-frame; broadcast entries below name the OpenAPI schema (in assets/openapi.yaml under components.schemas) that pins its structure.",
   "fields": {
    "seq": "integer (uint64) — monotonic daemon-assigned cursor; clients store the last received value and pass it back as `since` on subscribe to resume the stream after a reconnect",
-   "kind": "string enum (initial|change|refresh) — event family discriminator; default and dominant case is `change`",
+   "kind": "string enum (initial|change|refresh) — event family discriminator; default and dominant case is `change`. Named vocabulary: the `WSEnvelopeKind` enum in assets/schemas/enums.json",
    "topic": "string — routing key the client subscribed to (broadcasts only; absent on command replies)",
    "type": "string — discriminator naming the event family; matches the `name` field of the matching broadcast entry below",
    "ts": "string — RFC3339Nano timestamp of the event; UTC",
@@ -16,9 +16,18 @@
   "replay_buffer_capacity": 1024
  },
  "heartbeat": {
-  "description": "The daemon sends a `{\"op\":\"ping\"}` frame every ping_interval_seconds. Clients MUST respond with `{\"op\":\"pong\"}` within read_timeout_seconds or the connection is closed. Clients behind NAT or mobile-data proxies that drop idle connections faster than read_timeout_seconds should additionally issue their own `{\"op\":\"pong\"}` frames pre-emptively — the daemon accepts unsolicited pongs.",
+  "description": "The daemon sends a `{\"op\":\"ping\",\"echo\":\"<token>\"}` frame every ping_interval_seconds. Clients MUST respond with `{\"op\":\"pong\"}` within read_timeout_seconds or the connection is closed. Clients behind NAT or mobile-data proxies that drop idle connections faster than read_timeout_seconds should additionally issue their own `{\"op\":\"pong\"}` frames pre-emptively — the daemon accepts unsolicited pongs.",
   "ping_interval_seconds": 30,
-  "read_timeout_seconds": 60
+  "read_timeout_seconds": 60,
+  "echo": "Opaque token on every server `ping`. A client that copies it verbatim into its `pong` (`{\"op\":\"pong\",\"echo\":\"<token>\"}`) lets the daemon time the round-trip against its own clock alone; the two ends need no clock agreement. Echoing is OPTIONAL \u2014 a bare `{\"op\":\"pong\"}` is still a valid heartbeat, it just cannot be timed. Never parse the token; its encoding is not part of this contract.",
+  "rtt_ms": "Round-trip time in milliseconds of the PREVIOUS heartbeat on this connection, carried on the next `ping`. Lets a client display its own latency to the daemon without measuring anything itself. Absent on the first ping and whenever the preceding pong carried no echo. This is the client\u2192daemon distance only \u2014 it says nothing about the daemon\u2192CCU path, which the `connection_latency_ms` hub metric reports separately."
+ },
+ "reauth": {
+  "description": "Client → server: `{op:\"reauth\", token:\"<bearer token>\"}` swaps the credential behind an established connection without a reconnect. A socket resolves its identity once, at the upgrade, and the daemon closes it the instant that credential's deadline passes — so a long-lived client must refill before the deadline rather than discover the rotation through a 401. On success the daemon answers `{op:\"reauth_ok\"}`, carrying `expires_at` (RFC3339, UTC) when the new credential has a server-side deadline and omitting it when it has none. On failure — no token store wired, empty token, unknown or expired token — it answers `{op:\"reauth_failed\"}` and closes the connection; the client reconnects with fresh credentials. The same deadline is readable over REST as the `expires_at` field of GET /auth/me.",
+  "expires_at": "string? — RFC3339 UTC instant at which the newly installed credential stops being accepted. Absent means no server-side expiry."
+ },
+ "released_only": {
+  "description": "Client → server: append `released_only: true` to a subscribe op to drop every frame about a device the onboarding wizard has not released — the device.created / device.removed / device.availability_changed lifecycle frames and the datapoint.value_changed stream alike. Off by default and per connection, because this plane serves two kinds of consumer at once: the Config UI, which MUST see a device that is still being onboarded in order to configure it, and an ecosystem client, which must not adopt it before it is named. The `device.released` frame is never dropped — it is what lifts the filter, and withholding it would leave a filtering client unable to ever learn the device became adoptable. Frames that name no device (hub, system, alarm) are never affected. Pass `released_only: false` to turn it back off; an absent field leaves the current preference untouched across re-subscribes, exactly like `classify`."
  },
  "subscription_ack": {
   "description": "After a `{op:\"subscribe\", topics:[...]}` or `{op:\"unsubscribe\", topics:[...]}` is processed, the daemon echoes one `{op:\"subscribed\"|\"unsubscribed\", topics:[...]}` frame carrying the topics the client just requested. Reconnect-after-failure logic can use this ACK to confirm the subscription set survived the round trip without needing to inspect daemon-side state. An empty topics array suppresses the ACK to keep no-op subscribes quiet."
@@ -350,7 +359,7 @@
   },
   {
    "category": "datapoint",
-   "description": "Server-pushed: the value of a wire data-point changed on the CCU. One topic per (device, channel, parameter) tuple. Subscribe with `classify:true` to receive inline category / data_point_type on the payload (default off). `value` is the raw CCU wire value; when the data point declares a non-trivial multiplier the payload also carries `display_value`, the same reading expressed in the unit the data point names. It matches the `display_value` on the REST data-point summary, so a client that seeds from REST and updates from here shows one consistent number.",
+   "description": "Server-pushed: the value of a wire data-point changed on the CCU. One topic per (device, channel, parameter) tuple. Subscribe with `classify:true` to receive inline category / data_point_type on the payload (default off). `value` is the raw CCU wire value; when the data point declares a non-trivial multiplier the payload also carries `display_value`, the same reading expressed in the unit the data point names. It matches the `display_value` on the REST data-point summary, so a client that seeds from REST and updates from here shows one consistent number. NOT filtered by onboarding release state: a device an operator has accepted but not yet released streams values here like any other, because the Config UI needs them to verify the device before releasing it. A consumer that adopts devices must therefore drop these frames for a device whose `released` is false — the state arrives on `device.created` and is lifted by `device.released`, both on the device's lifecycle topic. Filtering the device LIST alone is not enough.",
    "kind": "broadcast",
    "name": "datapoint.value_changed",
    "topic": "device.{address}.channels.{channel}.data_points.{parameter}",
@@ -374,7 +383,7 @@
   },
   {
    "category": "devices",
-   "description": "Server-pushed: a new device was observed in the registry (added via CCU pairing, cache reload, or initial-snapshot import).",
+   "description": "Server-pushed: a device the daemon did not know before was observed in the registry. Not sent for the full-inventory announcement the CCU repeats after every reconnect — only an address the device registry does not already hold is announced, so a client may treat this frame as a genuine arrival rather than filtering the fleet out of it. The `source` field says which kind: NEW is a pairing, REFRESH a factory-reset re-pair (the device kept its address but rebuilt its channels), MANUAL an operator accepting a device out of the deferred-creation inbox, CACHE a device restored from the persisted description cache at boot.",
    "kind": "broadcast",
    "name": "device.created",
    "topic": "device.{address}.lifecycle",
@@ -388,6 +397,14 @@
     "address": "string",
     "duration_seconds": "integer?"
    }
+  },
+  {
+   "category": "devices",
+   "description": "Server-pushed: an operator finished onboarding a device — it stops being withheld from the ecosystems (MQTT and therefore Home Assistant, the Matter bridge, outbound webhooks) and may now be adopted by a consumer of this API too. Rides the same device.{address}.lifecycle topic as device.created; subscribers route by envelope `type`. A broadcast rather than a reply, because the consumer that needs it is precisely the one that was already connected and filtered the device out on its device.created frame: without this push it would never learn the device became adoptable. NOTE: this API does not withhold an unreleased device — the Config UI has to see it to configure it — so a consumer that adopts devices filters on the `released` field of device.created and this frame lifts that filter.",
+   "kind": "broadcast",
+   "name": "device.released",
+   "topic": "device.{address}.lifecycle",
+   "payload": "DeviceReleasedPayload"
   },
   {
    "category": "devices",
@@ -892,12 +909,13 @@
   },
   {
    "category": "links",
-   "description": "Write values to the LINK paramset on the given channel keyed by the peer channel address. Mirrors Python ws_put_link_paramset (websocket_api.py:1387). Closes parity_audit gap G-04.",
+   "description": "Write values to the LINK paramset on the given channel keyed by the peer channel address. This is a configuration write and is gated behind the same per-resource edit lock as the REST route: pass edit_token issued by POST /sessions/edit with key channel:{address}:LINK:{peer_address}, or the write is rejected with a 'locked' command error. The lock carries the peer because the paramset does — two links on one channel are two resources.",
    "name": "links.put_paramset",
    "args": {
     "address": "string",
     "peer_address": "string",
-    "parameters": "object"
+    "parameters": "object",
+    "edit_token": "string"
    }
   },
   {
@@ -922,59 +940,20 @@
   },
   {
    "category": "links",
-   "description": "Temporarily apply a link profile's default values to a link paramset for preview. Mirrors Python ws_test_link_profile (websocket_api.py:2643). Stub until Phase-11.",
-   "name": "links.test_profile",
+   "description": "Write a link profile to the LINK paramset of (receiver_channel_address, sender_channel_address). The value set is the profile's fixed constraint values plus the declared defaults of its loose constraints; a loose constraint carrying no default is not written, so the device keeps its current value for it. One consequence is worth knowing before building on this: applying a profile does not guarantee that a later links.get_profiles reports it as the active one, because the parameters that distinguish sibling profiles are frequently loose without a default. This is a configuration write and requires the per-resource edit lock: pass edit_token issued by POST /sessions/edit with key channel:{receiver_channel_address}:LINK:{sender_channel_address}, or the write is rejected with a 'locked' command error.",
+   "name": "links.apply_profile",
    "args": {
-    "interface_id": "string",
+    "interface_id": "string?",
     "sender_channel_address": "string",
     "receiver_channel_address": "string",
-    "profile_id": "integer?"
-   }
-  },
-  {
-   "category": "master_profiles",
-   "description": "Apply a stored master profile to a channel by writing its fixed parameters. This is a MASTER paramset write and is gated behind the same per-resource edit lock as paramset.put: pass edit_token (issued by POST /sessions/edit with key channel:{channel_address}:MASTER) or the write is rejected with a 'locked' command error.",
-   "name": "master_profiles.apply",
-   "args": {
-    "device_type": "string",
-    "channel_type": "string",
-    "channel_address": "string",
-    "id": "integer",
+    "profile_id": "integer",
     "edit_token": "string"
    },
    "result": {
-    "applied": "integer",
-    "param_count": "integer"
-   }
-  },
-  {
-   "category": "master_profiles",
-   "description": "Return the full parameter set of a single master profile by device type and id.",
-   "name": "master_profiles.get",
-   "args": {
-    "device_type": "string",
-    "channel_type": "string?",
-    "id": "integer?"
-   }
-  },
-  {
-   "category": "master_profiles",
-   "description": "List available master profiles, optionally filtered by device type and channel type.",
-   "name": "master_profiles.list",
-   "args": {
-    "device_type": "string?",
-    "channel_type": "string?",
-    "locale": "string?"
-   }
-  },
-  {
-   "category": "master_profiles",
-   "description": "Match observed parameter values against the master-profile constraint set and return the active profile ID (0 = Expert / no match).",
-   "name": "master_profiles.match",
-   "args": {
-    "device_type": "string",
-    "channel_type": "string?",
-    "current_values": "object?"
+    "success": "boolean",
+    "profile_id": "integer",
+    "written": "integer",
+    "interface_id": "string"
    }
   },
   {
@@ -1031,7 +1010,7 @@
   },
   {
    "category": "paramsets",
-   "description": "Write a paramset directly to the CCU without a session (non-transactional from a daemon-session perspective, but atomic on the wire: forwarded as one setParamsetValues XML-RPC call so the CCU applies all values together or none). Returns {written: N} on success. The CCU does not surface per-parameter status on this path — for that, use a config.session.* flow. MASTER and LINK writes are configuration changes gated behind the per-resource edit lock: pass edit_token (issued by POST /sessions/edit with key channel:{channel_address}:{paramset_key}) or the write is rejected with a 'locked' command error. VALUES writes are ungated.",
+   "description": "Write a paramset directly to the CCU without a session (non-transactional from a daemon-session perspective, but atomic on the wire: forwarded as one setParamsetValues XML-RPC call so the CCU applies all values together or none). Returns {written: N} on success. The CCU does not surface per-parameter status on this path — for that, use a config.session.* flow. paramset_key accepts MASTER and VALUES only. LINK is refused here: a LINK paramset belongs to a channel PAIR and is addressed by its partner, which this command carries no argument for — use links.put_paramset with address and peer_address. MASTER writes are configuration changes gated behind the per-resource edit lock: pass edit_token (issued by POST /sessions/edit with key channel:{channel_address}:MASTER) or the write is rejected with a 'locked' command error. VALUES writes are ungated.",
    "name": "paramset.put",
    "args": {
     "channel_address": "string",
@@ -1133,7 +1112,7 @@
   },
   {
    "category": "schedules",
-   "description": "Write a climate week-program back to a thermostat channel.",
+   "description": "Write a climate week-program back to a thermostat channel. The result carries \"corrections\" only when the stored schedule differs from the submitted one: a time with an hour of 24 and a non-zero minute is stored as 23:55, matching the CCU's own climate editor. Each entry names profile, weekday, period (0-based), field (start_time|end_time), requested and applied.",
    "name": "schedules.climate.set",
    "args": {
     "channel_address": "string",
@@ -1168,7 +1147,7 @@
   },
   {
    "category": "schedules",
-   "description": "Write a schedule back to the resolved schedule channel of a device.",
+   "description": "Write a schedule back to the resolved schedule channel of a device. Carries the same optional \"corrections\" list as schedules.climate.set.",
    "name": "schedules.device.set",
    "args": {
     "device_address": "string",
@@ -1356,7 +1335,7 @@
   },
   {
    "category": "cdp",
-   "description": "Invoke an operation on a custom data point (turn_on, set_temperature, open, …).",
+   "description": "Invoke an operation on a custom data point (turn_on, set_temperature, open, …). Operation arguments use the units and scales a Home Assistant client expects, matching what the custom-data-point STATE reports — not the CCU wire values, which live on the data-point plane. Concretely for a colour light: set_color takes {hue, saturation} with hue in degrees 0..360 and saturation 0..100, the same scale `state.color.s` reports back; the daemon converts to the wire `SATURATION` fraction 0..1 itself. Read and write therefore need no conversion in either direction — scaling `state.color.s` before sending it back is the mistake this note exists to prevent.",
    "name": "cdp.invoke",
    "args": {
     "device": "string",

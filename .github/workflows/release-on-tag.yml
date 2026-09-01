@@ -1,0 +1,72 @@
+name: "Release: Create from Tag"
+
+# Modelled on openccu-loom-client's release-on-tag.yml: a pushed tag creates
+# the GitHub Release, then dispatches the publish workflow. Splitting the two
+# keeps "a release exists" and "the registry has it" as separate, separately
+# re-runnable steps.
+# yamllint disable-line rule:truthy
+on:
+  push:
+    tags:
+      - '**'
+
+permissions:
+  contents: write
+
+jobs:
+  create_release:
+    if: github.repository_owner == 'SukramJ'
+    name: Create GitHub Release (${{ github.ref_name }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine version from tag
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          # Strip a leading 'v' to map tags like v1.2.3 -> 1.2.3
+          VERSION="${TAG_NAME#v}"
+          echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_ENV"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "Tag: $TAG_NAME -> $VERSION"
+
+      # npm publishes whatever package.json says, not what the tag says. A
+      # tag that disagrees with package.json either republishes an existing
+      # version (hard error) or publishes a version nobody tagged — both are
+      # cheaper to catch here than on the registry.
+      - name: Assert package.json version matches the tag
+        run: |
+          set -euo pipefail
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$PKG_VERSION" != "$VERSION" ]; then
+            echo "::error::package.json version ${PKG_VERSION} does not match tag ${TAG_NAME} (expected ${VERSION})"
+            exit 1
+          fi
+          echo "package.json version ${PKG_VERSION} matches ${TAG_NAME}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.TAG_NAME }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger npm-publish workflow via repository_dispatch
+        run: |
+          set -euo pipefail
+          REPO="${GITHUB_REPOSITORY}"
+          API="https://api.github.com/repos/${REPO}/dispatches"
+          echo "Dispatching event 'release-on-tag-succeeded' for tag ${TAG_NAME}"
+          curl -sSf -X POST "${API}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -d "{\"event_type\":\"release-on-tag-succeeded\",\"client_payload\":{\"tag\":\"${TAG_NAME}\",\"version\":\"${VERSION}\"}}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

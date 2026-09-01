@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: openccu-loom REST API
-  version: 7.12.0
+  version: 10.1.0
   description: |
     North-bound REST + WebSocket surface of the openccu-loom daemon.
     Errors follow RFC 9457 problem+json.
@@ -48,6 +48,7 @@ tags:
 paths:
   /info:
     get:
+      operationId: getInfo
       tags: [core]
       summary: Daemon build + runtime info
       security: []
@@ -60,6 +61,7 @@ paths:
 
   /health:
     get:
+      operationId: getHealth
       tags: [core]
       summary: Aggregated health snapshot
       security: []
@@ -77,6 +79,7 @@ paths:
 
   /config:
     get:
+      operationId: getConfig
       tags: [core]
       summary: Sanitized effective configuration
       description: |
@@ -114,6 +117,7 @@ paths:
 
   /ui/event:
     post:
+      operationId: postUIEvent
       tags: [core]
       summary: SPA telemetry sink (fire-and-forget)
       description: |
@@ -133,6 +137,7 @@ paths:
 
   /devices:
     get:
+      operationId: listDevices
       tags: [devices]
       summary: Paginated device list
       parameters:
@@ -147,6 +152,22 @@ paths:
             (exact match; `central == SystemCCUEntry.name ==
             payload.central`). Omit to list devices across every central
             the daemon manages.
+        - name: released_only
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: |
+            Set `true` to omit devices that have not finished onboarding.
+            Opt-in and never the default: this endpoint's other consumer
+            is the Config UI, which has to see a device that is still
+            being onboarded in order to configure it, so withholding by
+            default would make a device silently vanish from every
+            existing client's list.
+
+            Use it when the caller adopts devices — an ecosystem
+            integration — rather than configures them. The `released`
+            field on each entry carries the same information for a caller
+            that would rather filter itself.
       responses:
         "200":
           description: OK
@@ -156,6 +177,7 @@ paths:
 
   /devices/{addr}:
     get:
+      operationId: getDevice
       tags: [devices]
       summary: Single device detail
       parameters:
@@ -266,6 +288,7 @@ paths:
 
   /devices/{addr}/channels:
     get:
+      operationId: listDeviceChannels
       tags: [devices]
       parameters:
         - $ref: "#/components/parameters/Address"
@@ -282,6 +305,7 @@ paths:
 
   /devices/{addr}/channels/{no}:
     get:
+      operationId: getDeviceChannel
       tags: [devices]
       parameters:
         - $ref: "#/components/parameters/Address"
@@ -330,6 +354,7 @@ paths:
 
   /devices/{addr}/channels/{no}/event-groups:
     get:
+      operationId: listChannelEventGroups
       tags: [devices]
       summary: List per-Kind event groups for a channel
       description: |
@@ -352,6 +377,7 @@ paths:
 
   /devices/{addr}/channels/{no}/data-points:
     get:
+      operationId: listChannelDataPoints
       tags: [devices]
       parameters:
         - $ref: "#/components/parameters/Address"
@@ -369,6 +395,7 @@ paths:
 
   /devices/{addr}/channels/{no}/data-points/{param}:
     get:
+      operationId: getChannelDataPoint
       tags: [devices]
       parameters:
         - $ref: "#/components/parameters/Address"
@@ -385,6 +412,7 @@ paths:
 
   /devices/{addr}/channels/{no}/data-points/{param}/value:
     put:
+      operationId: putDataPointValue
       tags: [devices]
       summary: Set a data point value on the CCU
       description: |
@@ -430,6 +458,7 @@ paths:
 
   /devices/{addr}/channels/{no}/flags:
     get:
+      operationId: getChannelFlags
       tags: [devices]
       summary: Get the operator per-channel overrides (G12)
       parameters:
@@ -444,6 +473,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
     put:
+      operationId: putChannelFlags
       tags: [devices]
       summary: Set the operator per-channel overrides (G12)
       description: |
@@ -497,6 +527,7 @@ paths:
           $ref: "#/components/responses/BadGateway"
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
     put:
+      operationId: putParamset
       tags: [paramsets]
       summary: Write a paramset atomically (one wire call)
       description: |
@@ -944,6 +975,7 @@ paths:
 
   /programs:
     get:
+      operationId: listPrograms
       tags: [hub]
       parameters:
         - $ref: "#/components/parameters/Page"
@@ -973,6 +1005,7 @@ paths:
 
   /programs/{id}/execute:
     post:
+      operationId: executeProgram
       tags: [hub]
       description: |
         Triggers a CCU program. Programs typically drive actuators or
@@ -1016,6 +1049,7 @@ paths:
 
   /webhook/value:
     post:
+      operationId: webhookSetValue
       tags: [webhook]
       summary: Inbound webhook — set a datapoint value
       description: |
@@ -1047,6 +1081,7 @@ paths:
 
   /webhook/program:
     post:
+      operationId: webhookRunProgram
       tags: [webhook]
       summary: Inbound webhook — run a program
       description: |
@@ -1073,6 +1108,7 @@ paths:
 
   /sysvars:
     get:
+      operationId: listSysvars
       tags: [hub]
       parameters:
         - $ref: "#/components/parameters/Page"
@@ -1142,6 +1178,7 @@ paths:
         required: true
         schema: { type: string }
     get:
+      operationId: getSysvar
       tags: [hub]
       responses:
         "200":
@@ -1259,6 +1296,7 @@ paths:
 
   /alarm-messages:
     get:
+      operationId: listAlarmMessages
       tags: [messages]
       parameters:
         - $ref: "#/components/parameters/Page"
@@ -1278,6 +1316,7 @@ paths:
 
   /service-messages:
     get:
+      operationId: listServiceMessages
       tags: [messages]
       parameters:
         - $ref: "#/components/parameters/Page"
@@ -1297,6 +1336,7 @@ paths:
 
   /install-mode/interfaces:
     get:
+      operationId: listInstallModeInterfaces
       tags: [hub]
       description: |
         Per-interface install-mode state. One entry per install-mode data
@@ -1312,6 +1352,7 @@ paths:
                 items: { $ref: "#/components/schemas/InstallModeInterfaceEntry" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
+      operationId: setInstallModeInterface
       tags: [hub]
       security:
         - basicAuth: []
@@ -1365,6 +1406,7 @@ paths:
 
   /system/addon-update:
     get:
+      operationId: getAddonUpdate
       tags: [system]
       description: |
         Self-update status of the daemon's own CCU add-on package.
@@ -1380,6 +1422,7 @@ paths:
 
   /system/addon-update/check:
     post:
+      operationId: checkAddonUpdate
       tags: [system]
       description: Trigger an immediate update check against the release feed.
       security:
@@ -1393,6 +1436,7 @@ paths:
 
   /system/addon-update/install:
     post:
+      operationId: installAddonUpdate
       tags: [system]
       description: |
         Download, verify (SHA256 against the release checksums), stage
@@ -1414,6 +1458,7 @@ paths:
 
   /system/update:
     get:
+      operationId: getSystemUpdate
       tags: [hub]
       description: |
         CCU system-update info per central — the data behind the reference
@@ -1430,6 +1475,7 @@ paths:
 
   /system/update/install:
     post:
+      operationId: installSystemUpdate
       tags: [hub]
       security:
         - basicAuth: []
@@ -1465,6 +1511,7 @@ paths:
 
   /system/metrics:
     get:
+      operationId: getSystemMetrics
       tags: [hub]
       description: |
         Hub metric samples per central as JSON — the machine-readable twin
@@ -1482,6 +1529,7 @@ paths:
 
   /interfaces:
     get:
+      operationId: listInterfaces
       tags: [interfaces]
       responses:
         "200":
@@ -1494,6 +1542,7 @@ paths:
 
   /interfaces/{id}:
     get:
+      operationId: getInterface
       tags: [interfaces]
       parameters:
         - name: id
@@ -1511,6 +1560,7 @@ paths:
 
   /interfaces/{id}/reconnect:
     post:
+      operationId: reconnectInterface
       tags: [interfaces]
       security:
         - basicAuth: []
@@ -1833,6 +1883,7 @@ paths:
 
   /snapshot:
     get:
+      operationId: getSnapshot
       tags: [snapshot]
       summary: One-shot dump of structural daemon state
       description: |
@@ -1857,6 +1908,18 @@ paths:
             Comma-separated set of nested entities to expand:
             `channels` and/or `data_points` (alias `data-points`).
             Unknown tokens are ignored.
+        - name: released_only
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: |
+            Set `true` to omit devices that have not finished onboarding.
+            Opt-in and never the default — a snapshot is what an
+            ecosystem client seeds from, and it is also what the Config
+            UI reloads; only the caller knows which it is. Pair it with
+            the WebSocket subscribe option of the same name, or the two
+            planes disagree: absent from the snapshot but arriving as a
+            `device.created` push.
         - name: anonymize
           in: query
           required: false
@@ -1892,6 +1955,7 @@ paths:
 
   /events:
     get:
+      operationId: streamEvents
       tags: [events]
       summary: Upgrade to the WebSocket event stream
       description: |
@@ -2399,6 +2463,45 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /devices/{addr}/release:
+    post:
+      operationId: releaseDevice
+      summary: Finish onboarding and publish the device to the ecosystems
+      description: |
+        Ends the hold an accepted-but-unreleased device is under. Until
+        this call the device is fully materialised and configurable — it
+        has its CCU ise_id, its channels and its data points, and it is
+        visible in this daemon's own REST / WebSocket surfaces — but it is
+        withheld from the ecosystems: MQTT (and therefore Home Assistant),
+        the Matter bridge, and the outbound webhook.
+
+        The separation from `POST /devices/{addr}/accept` is deliberate.
+        Between the two steps the operator names the device and assigns
+        its rooms and functions. An ecosystem that sees a device first and
+        is corrected afterwards keeps the identity it saw — Home
+        Assistant its entity ids, a Matter controller its endpoint number
+        — so releasing last is what makes that naming stick.
+
+        Only a device that entered through the deferred-creation wizard
+        (`central.behavior.delay_new_device_creation`) is ever withheld.
+        A device that never did is released from the start, which is why
+        an upgrade publishes exactly what was published before.
+
+        `404` means no central is withholding the address: it was already
+        released, or it never went through the wizard.
+      tags: [devices]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [operator]
+      parameters:
+        - { in: path, name: addr, required: true, schema: { type: string } }
+      responses:
+        "204":
+          description: Device released
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /devices/firmware/refresh:
     post:
       operationId: refreshFirmwareData
@@ -2744,6 +2847,9 @@ paths:
       responses:
         "200":
           description: UI schema
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UISchema" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
         "500": { $ref: "#/components/responses/InternalError" }
@@ -2874,7 +2980,11 @@ paths:
         - { in: path, name: addr, required: true, schema: { type: string } }
         - { in: path, name: name, required: true, schema: { type: string } }
       responses:
-        "200": { description: Custom DP detail }
+        "200":
+          description: Custom DP detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomDPDetail" }
         "404": { $ref: "#/components/responses/NotFound" }
   /devices/{addr}/cdps/{name}/{operation}:
     post:
@@ -2986,6 +3096,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
   /devices/{addr}/channels/{no}/week_profile/channel-locks/{key}:
     put:
+      operationId: putWeekProfileChannelLock
       tags: [devices]
       description: |
         Toggle one target channel's week-program participation — the write
@@ -3011,84 +3122,6 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "502": { $ref: "#/components/responses/BadGateway" }
 
-  /devices/{addr}/channels/{no}/master-profiles:
-    get:
-      operationId: listMasterProfiles
-      summary: List master profiles for one channel
-      description: |
-        Master profiles available for the channel's (device_type,
-        channel_type) pair — resolved from the channel's owning device's
-        model and the channel's own type. Shares the domain call
-        (`masterprofile.Store.Profiles`) with the WS
-        `master_profiles.list` command. An unknown pair (no profiles
-        catalogued for this device/channel type) returns an empty array,
-        not 404.
-      tags: [devices]
-      parameters:
-        - { in: path, name: addr, required: true, schema: { type: string } }
-        - { in: path, name: "no", required: true, schema: { type: integer } }
-        - in: query
-          name: locale
-          schema: { type: string }
-          description: Locale for the localised name/description. Defaults to "en".
-      responses:
-        "200":
-          description: Master profiles for the channel (may be empty)
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/MasterProfileSummary" }
-        "404": { $ref: "#/components/responses/NotFound" }
-  /devices/{addr}/channels/{no}/master-profiles/{id}:
-    get:
-      operationId: getMasterProfile
-      summary: Full parameter set of a single master profile
-      description: |
-        Shares the domain call (`masterprofile.Store.Profile`) with the
-        WS `master_profiles.get` command.
-      tags: [devices]
-      parameters:
-        - { in: path, name: addr, required: true, schema: { type: string } }
-        - { in: path, name: "no", required: true, schema: { type: integer } }
-        - { in: path, name: id, required: true, schema: { type: integer } }
-      responses:
-        "200":
-          description: Master profile
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/MasterProfile" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "404": { $ref: "#/components/responses/NotFound" }
-  /devices/{addr}/channels/{no}/master-profiles/match:
-    post:
-      operationId: matchMasterProfile
-      summary: Match observed values against a channel's master-profile constraints
-      description: |
-        Matches the `current_values` in the request body against the
-        master-profile constraint set for the channel's (device_type,
-        channel_type) pair and returns the active profile id (0 = Expert
-        / no match). Shares the domain call
-        (`masterprofile.Store.MatchActiveProfile`) with the WS
-        `master_profiles.match` command.
-      tags: [devices]
-      parameters:
-        - { in: path, name: addr, required: true, schema: { type: string } }
-        - { in: path, name: "no", required: true, schema: { type: integer } }
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MatchMasterProfileRequest"
-      responses:
-        "200":
-          description: Active profile id (0 = no match)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MatchMasterProfileResponse"
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "404": { $ref: "#/components/responses/NotFound" }
 
   /devices/{addr}/channels/{no}/schedule:
     get:
@@ -3125,7 +3158,14 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/Schedule" }
       responses:
-        "202": { description: Scheduled }
+        "202":
+          description: |
+            Scheduled. The body lists any schedule time that was stored in a
+            corrected form; it is empty when the schedule was written exactly
+            as submitted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScheduleWriteResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
         "502": { $ref: "#/components/responses/BadGateway" }
@@ -3185,7 +3225,14 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/Schedule" }
       responses:
-        "202": { description: Scheduled }
+        "202":
+          description: |
+            Scheduled. The body lists any schedule time that was stored in a
+            corrected form; it is empty when the schedule was written exactly
+            as submitted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScheduleWriteResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
         "502": { $ref: "#/components/responses/BadGateway" }
@@ -3379,7 +3426,11 @@ paths:
         - { in: path, name: addr, required: true, schema: { type: string } }
         - { in: path, name: peer, required: true, schema: { type: string } }
       responses:
-        "200": { description: Paramset }
+        "200":
+          description: Paramset
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkParamset" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
@@ -3537,7 +3588,11 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateRoomRequest"
       responses:
-        "201": { description: Created }
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedNamedResource" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "409": { $ref: "#/components/responses/Conflict" }
         "502": { $ref: "#/components/responses/BadGateway" }
@@ -3606,7 +3661,11 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateFunctionRequest"
       responses:
-        "201": { description: Created }
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedNamedResource" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "409": { $ref: "#/components/responses/Conflict" }
         "502": { $ref: "#/components/responses/BadGateway" }
@@ -4586,7 +4645,12 @@ paths:
       operationId: metrics
       summary: Prometheus metrics (also at /metrics)
       tags: [diagnostics]
-      responses: { "200": { description: Prometheus text } }
+      responses:
+        "200":
+          description: Prometheus text
+          content:
+            text/plain:
+              schema: { type: string }
 
   /diagnostics:
     get:
@@ -7676,6 +7740,348 @@ components:
         priority:
           type: string
           enum: [critical, high, default, low]
+    CreatedNamedResource:
+      type: object
+      description: |
+        Response of the room / function create verbs: the id the CCU assigned
+        and the name it was created under. The name is echoed rather than
+        assumed, because the CCU normalises it.
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: CCU-assigned identifier of the created object.
+        name:
+          type: string
+          description: Name as the CCU stored it.
+    LinkParamset:
+      type: object
+      additionalProperties: true
+      description: |
+        Raw LINK paramset of one channel-peer pair, as the CCU returns it —
+        a flat parameter-name to value map with no fixed key set, which is
+        why it declares `additionalProperties` rather than named fields.
+    UISchema:
+      type: object
+      description: |
+        Rendering contract for one channel's configuration form — the shape
+        `GET /devices/{addr}/channels/{no}/ui-schema` answers with. Mirrors
+        `hmapi.UISchema`; the SPA's parameter editor is built from it, and it
+        is the one place the daemon states what a parameter *looks like*
+        rather than what it holds.
+      required: [channel, parameters]
+      properties:
+        channel: { $ref: "#/components/schemas/UISchemaChannel" }
+        groups:
+          type: array
+          items: { $ref: "#/components/schemas/UISchemaGroup" }
+          description: Named parameter groupings the form renders as sections.
+        parameter_order:
+          type: array
+          items: { type: string }
+          description: |
+            Parameter names in the order the form should render them.
+            Absent when the natural order applies.
+        parameters:
+          type: array
+          items: { $ref: "#/components/schemas/UISchemaParameter" }
+        visibility:
+          type: array
+          items: { $ref: "#/components/schemas/UISchemaVisibility" }
+          description: Conditional show/hide rules driven by another parameter's value.
+        cross_validations:
+          type: array
+          items: { $ref: "#/components/schemas/UISchemaCrossValidation" }
+        profile: { $ref: "#/components/schemas/UISchemaProfile" }
+        subset_groups:
+          type: array
+          items: { $ref: "#/components/schemas/UISchemaSubsetGroup" }
+          description: |
+            Easymode "scene"-style multi-parameter choices — picking one
+            option patches every member parameter at once.
+        model_description:
+          type: string
+          description: |
+            Localised human-readable device model name. Empty when the model
+            cannot be resolved from the translation catalogue.
+        device_icon:
+          type: string
+          description: Icon identifier for the device type. Empty when none is registered.
+    UISchemaChannel:
+      type: object
+      required: [address, number, type, device_address, paramset]
+      properties:
+        address: { type: string }
+        number: { type: integer }
+        type:
+          type: string
+          description: OCCU channel-type string (e.g. `ENERGIE_METER_TRANSMITTER`).
+        label:
+          type: string
+          description: Localised channel-type label. Empty when no translation exists.
+        device_address: { type: string }
+        paramset:
+          type: string
+          description: |
+            Paramset the form edits. Vocabulary: the ParamsetKey enum in
+            `assets/schemas/enums.json`.
+    UISchemaGroup:
+      type: object
+      required: [id, label, parameters]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        parameters:
+          type: array
+          items: { type: string }
+          description: Names of the parameters this group contains.
+    UISchemaParameter:
+      type: object
+      description: |
+        One editable parameter. `min`, `max`, `default` and a preset's `value`
+        are raw JSON because a parameter's type decides theirs — an integer
+        bound on an INTEGER, a float on a FLOAT, a string on an ENUM.
+      required: [name, type, operations, flags, observed]
+      properties:
+        name: { type: string }
+        label:
+          type: string
+          description: Localised parameter label. Empty when no translation exists.
+        help:
+          type: string
+          description: Localised help text. Empty when none exists.
+        type:
+          type: string
+          description: |
+            CCU parameter type (`BOOL`, `INTEGER`, `FLOAT`, `ENUM`, `STRING`,
+            `ACTION`). Vocabulary: the ParameterType enum in
+            `assets/schemas/enums.json`.
+        unit: { type: string }
+        min:
+          description: Lower bound, typed as the parameter is.
+        max:
+          description: Upper bound, typed as the parameter is.
+        default:
+          description: Default value, typed as the parameter is.
+        value_list:
+          type: array
+          items: { $ref: "#/components/schemas/UISchemaValueListEntry" }
+          description: Choices for an ENUM parameter.
+        operations: { $ref: "#/components/schemas/UISchemaParameterOps" }
+        flags: { $ref: "#/components/schemas/UISchemaParameterFlags" }
+        control:
+          type: string
+          description: CCU control hint (e.g. `BUTTON.SHORT`). Empty when none is declared.
+        value:
+          description: Current value. Absent when the parameter has not been observed.
+        observed:
+          type: boolean
+          description: Whether a value has actually been read from the CCU.
+        modified_at:
+          type: string
+          description: RFC3339 timestamp of the last local modification.
+        group_id:
+          type: string
+          description: Id of the `groups` entry this parameter belongs to.
+        preset: { type: string }
+        category: { type: string }
+        keypress_group:
+          type: string
+          description: Groups the keypress parameters of one button together.
+        display_as_percent:
+          type: boolean
+          description: Render a 0..1 float as a percentage.
+        display_value:
+          description: Pre-rendered display form of `value`, when one differs from it.
+        multiplier:
+          type: number
+          description: Factor between the wire value and the displayed one.
+        has_last_value:
+          type: boolean
+        hidden_by_default:
+          type: boolean
+          description: Render collapsed unless the operator asks for it.
+        time_pair_id:
+          type: string
+          description: Pairs a base/factor duration parameter with its partner.
+        time_selector_type:
+          type: string
+        time_presets:
+          type: array
+          items: { $ref: "#/components/schemas/UISchemaTimePreset" }
+        presets:
+          type: array
+          items: { $ref: "#/components/schemas/UISchemaPreset" }
+        allow_custom_value:
+          type: boolean
+          description: Whether a value outside `presets` may be entered.
+        subset_group_id:
+          type: string
+          description: Id of the `subset_groups` entry this parameter is a member of.
+    UISchemaValueListEntry:
+      type: object
+      required: [value, key]
+      properties:
+        value:
+          type: integer
+          description: Wire ordinal of the ENUM member.
+        key:
+          type: string
+          description: Wire name of the ENUM member.
+        label:
+          type: string
+          description: Localised label. Empty when no translation exists.
+    UISchemaParameterOps:
+      type: object
+      required: [read, write, event]
+      properties:
+        read: { type: boolean }
+        write: { type: boolean }
+        event: { type: boolean }
+        determine:
+          type: boolean
+          description: The parameter supports the CCU's determine-value verb.
+    UISchemaParameterFlags:
+      type: object
+      description: The CCU's FLAGS bitmask, decoded.
+      required: [visible, internal, service]
+      properties:
+        visible: { type: boolean }
+        internal: { type: boolean }
+        service: { type: boolean }
+    UISchemaTimePreset:
+      type: object
+      required: [base, factor, label]
+      properties:
+        base: { type: integer }
+        factor: { type: integer }
+        label: { type: string }
+    UISchemaPreset:
+      type: object
+      required: [label, value]
+      properties:
+        label: { type: string }
+        value:
+          description: Preset value, typed as the parameter is.
+    UISchemaVisibility:
+      type: object
+      description: |
+        One conditional rule: when `trigger` holds `trigger_value`, show the
+        `show` parameters and hide the `hide` ones.
+      required: [show, trigger, trigger_value]
+      properties:
+        show:
+          type: array
+          items: { type: string }
+        hide:
+          type: array
+          items: { type: string }
+        trigger:
+          type: string
+          description: Name of the parameter whose value drives the rule.
+        trigger_value:
+          description: Value of `trigger` that activates the rule, typed as that parameter is.
+    UISchemaCrossValidation:
+      type: object
+      description: |
+        One constraint spanning several parameters. Which of the optional
+        parameter slots are filled depends on `rule`.
+      required: [id, rule, applies_to_params]
+      properties:
+        id: { type: string }
+        rule:
+          type: string
+          description: Constraint kind, which decides the slots below.
+        param_a: { type: string }
+        param_b: { type: string }
+        param: { type: string }
+        min_param: { type: string }
+        max_param: { type: string }
+        applies_to_params:
+          type: array
+          items: { type: string }
+          description: Every parameter the constraint touches.
+        error:
+          type: string
+          description: Localised message to show when the constraint fails.
+    UISchemaProfile:
+      type: object
+      description: Link-profile context, present only for a LINK paramset form.
+      required: [receiver_type]
+      properties:
+        receiver_type: { type: string }
+        sender_type: { type: string }
+        active_profile_id:
+          type: integer
+          description: Profile the channel currently runs.
+        raw:
+          description: Raw profile document, as the profile store holds it.
+    UISchemaSubsetGroup:
+      type: object
+      required: [id, label, member_params, options]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        member_params:
+          type: array
+          items: { type: string }
+        current_option_id:
+          type: ["integer", "null"]
+          description: |
+            Option the members currently match. Null when the current values
+            match no option.
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/UISchemaSubsetOpt" }
+    UISchemaSubsetOpt:
+      type: object
+      required: [id, label, values]
+      properties:
+        id: { type: integer }
+        label: { type: string }
+        values:
+          type: object
+          additionalProperties: true
+          description: Parameter name to value, applied together when picked.
+    CustomDPDetail:
+      type: object
+      description: |
+        Response of `GET /devices/{addr}/cdps/{name}` — deliberately *not* a
+        `CustomDPSummary`. The detail response carries the live `state` plus
+        the three fields needed to place it, and omits everything the summary
+        exists to serve a list with: `unique_id`, `supported_operations`,
+        `capabilities`, `config`, the name fields.
+
+        That distinction used to be undeclared, and a consumer read the
+        summary's schema for this route and validated against it. The mistake
+        was invisible until the code path first ran, and then broke every
+        custom-data-point refresh against a live daemon. Mirrors
+        `handlers.CustomDPDetail`.
+      required: [name, category, channel_no, state]
+      properties:
+        name:
+          type: string
+          description: |
+            Wire identity of the Custom-DP, echoing the `{name}` path
+            parameter — the bare parameter name, or `PARAM@<channel>` when a
+            profile channel group materialises it on several channels.
+        category:
+          type: string
+          description: |
+            Model category of the Custom-DP (`switch`, `cover`, `climate`, …).
+            Vocabulary: the DataPointCategory enum in
+            `assets/schemas/enums.json`.
+        channel_no:
+          type: integer
+          description: Primary CCU channel the Custom-DP is materialised on.
+        state:
+          type: ["object", "null"]
+          additionalProperties: true
+          description: |
+            Live state snapshot — the same semantic keys the WS
+            `custom_data_point.state_changed` event carries (`is_locked`,
+            `hvac_mode`, `brightness`, …). Null when the Custom-DP reports no
+            state.
     CustomDPSummary:
       type: object
       required: [name, unique_id, category, channel_no, supported_operations]
@@ -7704,6 +8110,13 @@ components:
             `text_display`. Drives the SPA's CDP-aware widget
             selection (ADR 0016). Empty when the kind classifier
             does not recognise the Custom-DP type.
+
+            Deliberately not a closed enum: the empty value is
+            reachable, so a schema that pinned the token set would
+            reject a conforming response. The full token list is
+            published as the open `CustomDPKind` vocabulary in
+            `assets/schemas/enums.json`; consumers keep a fallback
+            for tokens they do not know.
         channels:
           type: array
           items: { type: integer }
@@ -7723,6 +8136,12 @@ components:
             `effects`, `tilt`, `boost`, `away`. Mirrors the
             per-category Capability struct from
             `internal/model/custom/mixins.go`.
+
+            A Custom-DP carries only the flags of its own category, so
+            a missing key means the feature is not applicable — never
+            that it is switched off. The full key list is published as
+            the open `CustomDPCapability` vocabulary in
+            `assets/schemas/enums.json`.
         config:
           type: object
           additionalProperties: true
@@ -8301,6 +8720,8 @@ components:
           update_available,
           master_pushes_config_pending,
           has_sub_devices,
+          firmware,
+          availability,
         ]
       properties:
         address: { type: string }
@@ -8395,6 +8816,35 @@ components:
             sections.
         rx_mode:
           $ref: "#/components/schemas/RxMode"
+        firmware:
+          $ref: "#/components/schemas/DeviceFirmware"
+        availability:
+          $ref: "#/components/schemas/DeviceAvailability"
+    DeviceFirmware:
+      type: object
+      description: |
+        Installed / available firmware pair for the device. Served on every
+        summary row, not only on the detail response: the values come from
+        the in-memory model, so a client bootstrapping N devices reads them
+        from the list instead of issuing N detail requests.
+      properties:
+        Current: { type: string }
+        Available: { type: string }
+        Updatable: { type: boolean }
+        UpdateState: { type: string }
+    DeviceAvailability:
+      type: object
+      description: |
+        Reachability, battery and signal snapshot for the device. Served on
+        every summary row for the same reason as `firmware`. The three
+        nullable members are null when the device has no such indicator —
+        never 0 or false, which would read as a real measurement.
+      properties:
+        IsReachable: { type: boolean }
+        LastUpdated: { type: string, format: date-time }
+        BatteryLevel: { type: ["integer", "null"] }
+        LowBattery: { type: ["boolean", "null"] }
+        SignalStrength: { type: ["integer", "null"] }
     RxMode:
       type: object
       description: |
@@ -8431,26 +8881,27 @@ components:
         per_page: { type: integer }
         total: { type: integer }
     DeviceDetail:
+      description: |
+        A device summary plus its channel list. `firmware` and `availability`
+        come from the embedded summary — they moved there in APIVersion
+        7.23.0 and are unchanged on this response, same keys, same place.
+        `channels` is the only member the summary does not carry, and a
+        client that walks the nested snapshot already has it, so a bootstrap
+        no longer needs this endpoint per device.
       allOf:
         - $ref: "#/components/schemas/DeviceSummary"
         - type: object
           required: [firmware, availability, channels]
           properties:
+            # Restated from DeviceSummary on purpose. The response has
+            # always required both and still does; declaring them only in
+            # the referenced summary reads to a differ that does not
+            # resolve allOf as a removal from this response, which would
+            # force a major bump for a wire-identical change.
             firmware:
-              type: object
-              properties:
-                Current: { type: string }
-                Available: { type: string }
-                Updatable: { type: boolean }
-                UpdateState: { type: string }
+              $ref: "#/components/schemas/DeviceFirmware"
             availability:
-              type: object
-              properties:
-                IsReachable: { type: boolean }
-                LastUpdated: { type: string, format: date-time }
-                BatteryLevel: { type: ["integer", "null"] }
-                LowBattery: { type: ["boolean", "null"] }
-                SignalStrength: { type: ["integer", "null"] }
+              $ref: "#/components/schemas/DeviceAvailability"
             channels:
               type: array
               items: { $ref: "#/components/schemas/ChannelSummary" }
@@ -8583,6 +9034,22 @@ components:
             Operator per-channel override (G12): when true control writes to
             the channel's VALUES paramset are rejected (423). Reads and
             MASTER/config edits are unaffected. Omitted when false.
+        event_groups:
+          type: array
+          items: { $ref: "#/components/schemas/EventGroupSummary" }
+          description: |
+            The channel's device-trigger event groups — the same objects
+            `GET /devices/{addr}/channels/{no}/event-groups` serves, carried
+            inline so a client builds its event entities from the one
+            bootstrap call instead of a round trip per channel.
+
+            Each group carries its own `unique_id`, `kind`, `event_types` and
+            member `parameters`, so a consumer never has to classify CCU
+            parameter names or recompute a routing key for itself — doing so
+            is what caps a consumer at the event kinds its author knew about.
+
+            Omitted when the channel exposes no event sources, which is the
+            common case; only trigger-capable channels grow the payload.
     MQTTReloadResponse:
       type: object
       required: [reloaded, took_ms]
@@ -9561,7 +10028,11 @@ components:
           description: Aggregate health score in percent (0-100); omitted until observed.
         connection_latency_ms:
           type: number
-          description: Average CCU round-trip latency; omitted until observed.
+          description: >-
+            Round-trip latency in milliseconds of the most recently confirmed
+            PING/PONG pair with the CCU, measured over the interface's own
+            transport (XML-RPC or BIN-RPC) including the callback reply leg.
+            One value per CCU, not per interface. Omitted until observed.
         last_event_age_seconds:
           type: number
           description: Age of the newest backend event; omitted until observed.
@@ -9572,37 +10043,6 @@ components:
         enabled:
           type: boolean
           description: Include (true) / exclude (false) the channel from the week-program schedule.
-    MasterProfileSummary:
-      type: object
-      required: [id, name, description, param_count]
-      description: One entry in `GET .../master-profiles` — the list shape (no full parameter map).
-      properties:
-        id: { type: integer }
-        name: { type: string, description: Localised profile name. }
-        description: { type: string, description: Localised profile description. }
-        param_count: { type: integer, description: Number of MASTER parameters this profile sets. }
-    MasterProfile:
-      type: object
-      required: [id, name, description, params]
-      description: Full master-profile shape returned by `GET .../master-profiles/{id}`.
-      properties:
-        id: { type: integer }
-        name:
-          type: object
-          additionalProperties: { type: string }
-          description: 'Locale-keyed profile name (e.g. `{"en": "Eco", "de": "Eco"}`).'
-        description:
-          type: object
-          additionalProperties: { type: string }
-          description: Locale-keyed profile description.
-        params:
-          type: object
-          description: MASTER parameter name to constraint.
-          additionalProperties:
-            type: object
-            properties:
-              constraint_type: { type: string, description: 'Usually "fixed"; other kinds appear sporadically.' }
-              value: {}
     InterfaceState:
       type: object
       required: [id, name, connected, interface]
@@ -9696,6 +10136,19 @@ components:
           description: >-
             How the request authenticated. `ingress` is the Home
             Assistant Ingress passthrough the add-on deployment uses.
+        expires_at:
+          type: string
+          format: date-time
+          description: >-
+            The instant the credential behind this identity stops being
+            accepted, in UTC. Absent means the credential has no
+            server-side expiry — a `basic`, `ingress` or unbounded
+            `bearer` identity. It is the deadline a long-lived consumer
+            needs: a WebSocket captures its identity at the upgrade and
+            is closed when this instant passes, so a client that reads
+            it can refill its credential through the in-band
+            `{op:"reauth"}` frame instead of discovering the rotation
+            through a 401.
     UserListEntry:
       type: object
       required: [username, role]
@@ -10357,6 +10810,14 @@ components:
       description: |
         Payload of a `datapoint.value_changed` broadcast. Topic
         pattern `device.{address}.channels.{channel}.data_points.{parameter}`.
+
+        This plane is NOT filtered by onboarding release state. A device
+        an operator accepted but has not released yet streams values here
+        like any other, because the Config UI needs them to verify the
+        device before releasing it. A consumer that adopts devices must
+        drop these frames for a device whose `released` is false —
+        filtering the device list alone is not enough. The state arrives
+        on `device.created` and is lifted by `device.released`.
       required: [central, device_address, channel, parameter, paramset_key, unique_id, value, available, modified_at]
       properties:
         central: { type: string }
@@ -10453,7 +10914,24 @@ components:
         state:
           type: object
           additionalProperties: true
-          description: Composed state snapshot — keys depend on the CDP category.
+          description: |
+            Composed state snapshot — keys depend on the CDP category.
+
+            **Units and scales are the ones a Home Assistant client
+            expects, not the CCU's wire values.** This is the abstraction
+            plane: the raw parameter values live on the data-point plane
+            (`DataPointValueChangedPayload.value`, `GET
+            /devices/{addr}/channels/{ch}/data-points`), where the daemon
+            reports whatever the CCU sent.
+
+            The one that has caused a real mis-read: for a colour light,
+            `color` is `{h, s}` with **hue in degrees 0..360 and
+            saturation 0..100** — already scaled from the wire
+            `SATURATION` parameter, which carries the fraction 0..1. A
+            client that reads `color.s` and scales it again ends up with
+            every colour fully saturated. The `set_color` operation takes
+            saturation on the same 0..100 scale, so the two directions
+            match and neither needs converting.
 
     CentralStateChangedPayload:
       type: object
@@ -11343,10 +11821,15 @@ components:
       type: object
       description: |
         Payload of a `device.created` broadcast. Topic pattern
-        `device.{address}.lifecycle`. Fires when the registry
-        observes a new device (CCU pairing, cache reload, or
-        initial-snapshot import). The `source` field discriminates
-        which path created the entry — see hmenum.SourceOfDeviceCreation.
+        `device.{address}.lifecycle`. Fires when a device the daemon
+        did not know before is observed in the registry. It is NOT
+        sent for the full-inventory announcement the CCU repeats
+        after every reconnect — the daemon answers `listDevices` with
+        an empty array, so the CCU re-announces everything it has, and
+        only an address the device registry does not already hold is
+        news. A subscriber may therefore treat this payload as a
+        genuine arrival rather than filtering the fleet out of it.
+        The `source` field discriminates which path created the entry.
       required: [central, interface_id, device_address, model]
       properties:
         central: { type: string }
@@ -11355,7 +11838,55 @@ components:
         model: { type: string }
         source:
           type: string
-          description: "hmenum.SourceOfDeviceCreation (CACHE, INIT, NEW_DEVICE, …)."
+          description: >-
+            Which kind of arrival this is, from
+            `hmenum.SourceOfDeviceCreation`: `NEW` a CCU pairing,
+            `REFRESH` a factory-reset re-pair (the device kept its
+            address but rebuilt its channels), `MANUAL` an operator
+            accepting a device out of the deferred-creation inbox,
+            `CACHE` a device restored from the persisted description
+            cache at boot. `INIT` is defined by the enum but has no
+            producer on this broadcast. Treat the set as
+            forward-compatible and ignore values you do not know.
+        released:
+          type: boolean
+          description: |
+            Whether the device has finished onboarding and may be
+            adopted. `false` means it is accepted and configurable but
+            deliberately not yet published to the ecosystems — a
+            consumer that adopts devices should wait for the matching
+            `device.released` frame rather than act on this one.
+
+            Carried on the creation frame rather than left to a
+            separate lookup because the alternative is a race: a client
+            that reads the state from a snapshot can receive this push
+            first and adopt a device it would have filtered.
+
+            Always `true` on an installation that never used the
+            onboarding wizard.
+
+    DeviceReleasedPayload:
+      type: object
+      description: |
+        Payload of a `device.released` broadcast. Topic pattern
+        `device.{address}.lifecycle` — the same topic as
+        `device.created`; subscribers route by the envelope `type`.
+
+        Fires when an operator finishes onboarding a device: it stops
+        being withheld from the ecosystems (MQTT / Home Assistant, the
+        Matter bridge, outbound webhooks) and may now be adopted by a
+        consumer of this API too.
+
+        It is a broadcast rather than a reply because the consumer that
+        needs it is precisely the one that was already connected and
+        filtered the device out on its `device.created` frame: without
+        a push it would never learn the device became adoptable, and
+        would surface it only after its next full reload.
+      required: [central, interface_id, device_address]
+      properties:
+        central: { type: string }
+        interface_id: { type: string }
+        device_address: { type: string }
 
     DeviceRemovedPayload:
       type: object
@@ -12133,6 +12664,34 @@ components:
         output_behaviour:
           type: integer
           description: HmIP-BSL signal-LED behaviour, opaque.
+    ScheduleWriteResult:
+      type: object
+      description: |
+        Result of a schedule write. `corrections` is present only when the
+        stored schedule differs from the submitted one, which happens when a
+        time was accepted in a corrected form rather than refused: an hour of
+        24 with a non-zero minute is stored as 23:55, matching what the CCU's
+        own climate editor does to the same input. A client that renders
+        schedules must surface these, because its own copy is no longer what
+        the device holds.
+      properties:
+        corrections:
+          type: array
+          items: { $ref: "#/components/schemas/ScheduleTimeCorrection" }
+      additionalProperties: false
+    ScheduleTimeCorrection:
+      type: object
+      required: [profile, weekday, period, field, requested, applied]
+      properties:
+        profile: { type: string, description: "Profile key, e.g. P1" }
+        weekday: { type: string, description: "Weekday key, e.g. MONDAY" }
+        period: { type: integer, description: "0-based index into the submitted periods list" }
+        field:
+          type: string
+          enum: [start_time, end_time]
+        requested: { type: string, description: "The submitted value" }
+        applied: { type: string, description: "The value actually stored" }
+      additionalProperties: false
     Schedule:
       type: object
       required: [channel, kind]
@@ -12535,6 +13094,22 @@ components:
         serial: { type: string }
         manufacturer: { type: string }
         first_seen: { type: integer, format: int64 }
+        awaiting_release:
+          type: boolean
+          description: |
+            True when the device is already accepted and fully
+            materialised — it has its CCU ise_id, its channels and its
+            data points, and it can be renamed and assigned rooms right
+            now — but is still withheld from the ecosystems (MQTT and
+            therefore Home Assistant, the Matter bridge, outbound
+            webhooks) until the operator finishes onboarding it with
+            POST /devices/{addr}/release.
+
+            This is the onboarding wizard's middle state and a different
+            ask than `pending_creation`: that one means "decide whether
+            this device exists", this one means "configure it, then
+            publish it". A client must not offer an accept action for an
+            entry flagged here — it is already accepted.
         pending_creation:
           type: boolean
           description: |
@@ -13835,17 +14410,6 @@ components:
       properties:
         username: { type: string }
         password: { type: string }
-    MatchMasterProfileRequest:
-      type: object
-      properties:
-        current_values:
-          type: object
-          additionalProperties: true
-    MatchMasterProfileResponse:
-      type: object
-      required: [active_id]
-      properties:
-        active_id: { type: integer }
     MatterFactoryResetRequest:
       type: object
       required: [confirm]

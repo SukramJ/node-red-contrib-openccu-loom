@@ -1,0 +1,75 @@
+name: "Release: Publish to npm"
+
+# Publishes node-red-contrib-openccu-loom to npm when a GitHub Release is
+# published (or when release-on-tag dispatches the chained event). The npm
+# counterpart of openccu-loom-client's python-publish.yml.
+#
+# Prereqs/assumptions:
+# - npm Trusted Publishing (OIDC) is configured for this package, so no
+#   registry token is stored in this repository. Until it is, this workflow
+#   fails at the publish step — deliberately, rather than falling back to a
+#   long-lived token nobody rotates.
+# yamllint disable-line rule:truthy
+on:
+  release:
+    types: [published]
+  repository_dispatch:
+    types: [release-on-tag-succeeded]
+
+permissions:
+  contents: read
+  id-token: write  # required for npm Trusted Publishing
+
+concurrency:
+  group: npm-publish-${{ github.event.release.tag_name || github.event.client_payload.tag || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  npm-publish:
+    if: ${{ github.repository_owner == 'SukramJ' }}
+    name: Publish to npm (${{ github.event.release.tag_name || github.event.client_payload.tag }})
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+    env:
+      TAG_NAME: ${{ github.event.release.tag_name || github.event.client_payload.tag }}
+    steps:
+      # The tag, not the default branch: a release publishes the tree that
+      # was tagged, even if main has moved on since.
+      - name: Check out the tagged tree
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG_NAME }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.x"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm install
+
+      # The tag is a claim that this tree is releasable; the suite is the
+      # only thing that checks it. Re-run it here so a red tag cannot reach
+      # the registry, where a version can never be replaced.
+      - name: Run tests
+        run: npm test
+
+      - name: Assert package.json version matches the tag
+        run: |
+          set -euo pipefail
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          EXPECTED="${TAG_NAME#v}"
+          if [ "$PKG_VERSION" != "$EXPECTED" ]; then
+            echo "::error::package.json version ${PKG_VERSION} does not match tag ${TAG_NAME}"
+            exit 1
+          fi
+
+      # Trusted Publishing needs a newer npm than the one bundled with the
+      # Node 22 runtime image.
+      - name: Upgrade npm for Trusted Publishing
+        run: npm install -g npm@latest
+
+      - name: Publish
+        run: npm publish --provenance --access public
