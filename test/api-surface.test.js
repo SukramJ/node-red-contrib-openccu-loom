@@ -212,31 +212,14 @@ describe("API-PIN contract: alarm node commands + hub envelope ops", function ()
 
   it("the envelope control ops the hub relies on are documented in the wsapi spec text", function () {
     // lib/ws-hub.js switches on these literal op values while framing /
-    // parsing every WebSocket message (subscribe ack, replay markers,
-    // heartbeat, call result). Each must appear somewhere in the
-    // vendored wsapi.json so a spec refresh that silently drops one is
-    // caught here.
-    const ops = ["subscribed", "unsubscribed", "replay_done", "replay_lost", "ping", "pong", "result"];
+    // parsing every WebSocket message (subscribe ack, credential swap,
+    // replay markers, heartbeat, call result). Each must appear somewhere
+    // in the vendored wsapi.json so a spec refresh that silently drops one
+    // is caught here.
+    const ops = ["subscribed", "unsubscribed", "reauth", "replay_done", "replay_lost", "ping", "pong", "result"];
     for (const op of ops) {
       assert.ok(wsapiText.includes(op), `wsapi.json does not mention the "${op}" envelope op anywhere`);
     }
-  });
-
-  it("known spec gap: reauth is a real op the hub relies on but wsapi.json does not document it yet", function () {
-    // lib/ws-hub.js sends {op:"reauth", token} (see WsHub.reauth()), and
-    // the daemon really implements it — openccu-loom's
-    // internal/north/rest/ws/client.go reauth()/handleFrame() replies
-    // with {op:"reauth_ok"|"reauth_failed"} — but this vendored
-    // wsapi.json's envelope/resume/heartbeat/subscription_ack sections
-    // document subscribe/unsubscribe/ping/pong/replay only, not reauth.
-    // This is a real gap in the daemon's spec documentation, not a bug
-    // in this package. Tracked here instead of silently asserting
-    // something false: if the daemon repo starts documenting "reauth",
-    // this assertion flips and should be merged into the op list above.
-    assert.ok(
-      !wsapiText.includes("reauth"),
-      'wsapi.json now documents "reauth" — move it into the asserted envelope-op list above'
-    );
   });
 });
 

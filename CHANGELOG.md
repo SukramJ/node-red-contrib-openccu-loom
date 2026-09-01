@@ -3,6 +3,23 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] - 2026-09-01
+
+Tracks the daemon's API 10.1.0 (openccu-loom 0.71.0), up from 7.12.0.
+
+### Changed
+
+- **`SUPPORTED_API_MAJOR` raised 7 -> 10 and the vendored spec refreshed to
+  the v0.71.0 tag.** Three daemon majors landed between 0.64.2 and 0.71.0, so
+  this package had been reporting every current daemon as unsupported. The
+  server node now logs "unsupported" against a daemon on API 7.x-9.x instead,
+  which is the correct direction: those releases are the ones this build no
+  longer matches.
+
+- **Tag-triggered release and npm-publish workflows added.** The package had
+  no release automation, which is how the drift went three majors deep without
+  anything saying so.
+
 ## [0.5.0] - 2026-08-24
 
 Tracks the daemon's API 7.12.0 (openccu-loom 0.64.2).
