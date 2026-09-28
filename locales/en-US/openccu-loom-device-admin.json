@@ -29,7 +29,7 @@
       "team-set": "Assign team"
     },
     "tip": {
-      "fields": "msg.name, msg.rooms, msg.functions, msg.includeChannels, msg.oldAddress, msg.url, msg.team, msg.hidden, msg.locked fill the request per action; an object in msg.payload is sent as the body verbatim."
+      "fields": "msg.name, msg.rooms, msg.functions, msg.includeChannels, msg.oldAddress, msg.team, msg.hidden, msg.locked fill the request per action; an object in msg.payload is sent as the body verbatim."
     }
   }
 }

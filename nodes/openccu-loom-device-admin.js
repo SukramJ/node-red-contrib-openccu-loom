@@ -101,12 +101,12 @@ module.exports = function (RED) {
             if (needsAddress()) return;
             res = await client.post(`/devices/${encodeURIComponent(addr)}/firmware/update`);
             break;
-          case "firmware-download": {
-            const url = msg.url || config.url;
-            if (!url) return done(new Error("msg.url missing (firmware image URL)"));
-            res = await client.post("/system/firmware/download", central ? { url, central } : { url });
+          case "firmware-download":
+            // The CCU downloads the firmware for its own version and board
+            // serial; since daemon API 11.0.0 a caller-supplied image URL is
+            // accepted and ignored, so none is sent (msg.url is not needed).
+            res = await client.post("/system/firmware/download", central ? { central } : {});
             break;
-          }
           case "delete":
             if (needsAddress()) return;
             // reset also factory-resets the device, force removes an
