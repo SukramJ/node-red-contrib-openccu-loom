@@ -208,7 +208,7 @@ Administrative device operations, selected via `msg.action`:
   factory-resets during removal, `msg.force` removes an unreachable device),
   `replace-candidates`, `replace` (`msg.oldAddress`).
 * **Firmware / diagnostics** — `firmware`, `firmware-download`
-  (`POST /system/firmware/download` from `msg.url`), `test`
+  (`POST /system/firmware/download`: the CCU fetches the image for its own version and serial), `test`
   (`POST /devices/{addr}/test`), `restore-config`.
 * **Channels** — `channel-update` (rename, rooms, functions), `channel-flags` /
   `channel-flags-set` (the operator overrides `hidden` and `locked`),

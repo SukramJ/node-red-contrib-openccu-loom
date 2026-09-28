@@ -49,6 +49,11 @@ function startBackend() {
           res.end(JSON.stringify({ address: decodeURIComponent(firmware[1]), status: "updating" }));
           return;
         }
+        if (req.url === "/api/v1/system/firmware/download" && req.method === "POST") {
+          res.writeHead(202, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ status: "downloaded" }));
+          return;
+        }
         const del = req.url.match(/^\/api\/v1\/devices\/([^/]+)$/);
         if (del && req.method === "DELETE") {
           res.writeHead(200, { "Content-Type": "application/json" });
@@ -148,6 +153,27 @@ describe("openccu-loom-device-admin", function () {
         return origError(err, msg);
       };
       n1.receive({ payload: { not: "an array" } });
+    });
+  });
+
+  it("action 'firmware-download' POSTs to /system/firmware/download without a URL", function (done) {
+    // Since daemon API 11.0.0 the CCU picks the image itself; a URL is
+    // accepted and ignored, so the node neither requires nor sends one.
+    const port = backend.address().port;
+    helper.load([serverNode, deviceAdminNode], flow(port, { action: "firmware-download" }), function () {
+      const n2 = helper.getNode("n2");
+      n2.on("input", (msg) => {
+        try {
+          assert.deepStrictEqual(msg.payload, { status: "downloaded" });
+          assert.deepStrictEqual(requests, [
+            { method: "POST", url: "/api/v1/system/firmware/download", body: { central: "home" } },
+          ]);
+          done();
+        } catch (e) {
+          done(e);
+        }
+      });
+      helper.getNode("n1").receive({ central: "home", url: "https://example.invalid/fw.tgz" });
     });
   });
 

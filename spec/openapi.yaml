@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: openccu-loom REST API
-  version: 10.1.0
+  version: 12.0.0
   description: |
     North-bound REST + WebSocket surface of the openccu-loom daemon.
     Errors follow RFC 9457 problem+json.
@@ -541,6 +541,13 @@ paths:
         The CCU does not return per-parameter status on success; the
         202 response carries no body. On failure the daemon surfaces
         the upstream error as 502 problem+json with `code: upstream_unavailable`.
+
+        `LINK` is accepted in the path only for reads. A write keyed with
+        the literal `LINK` is refused with 400 `validation_error`: a LINK
+        paramset exists once per peer and is addressed by the peer's
+        channel address (`PUT /devices/{addr}/paramsets/link/{peer}`);
+        passing the literal to the CCU would commit a configuration
+        write for a non-existent peer over the air.
 
         Headers:
           - `Idempotency-Key` (optional): client-supplied UUID. The
@@ -1254,6 +1261,13 @@ paths:
         - openIdConnect: [operator]
       responses:
         "202": { description: Scheduled }
+        "400":
+          description: >-
+            No hub could be resolved for the mutation — on a multi-CCU
+            daemon the target central must be named.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
@@ -1400,6 +1414,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InstallModeSearchResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
@@ -1411,7 +1426,7 @@ paths:
       description: |
         Self-update status of the daemon's own CCU add-on package.
         Only meaningful on platforms with the firmware-side installer
-        (`/bin/install_addon`, i.e. OpenCCU / RaspberryMatic); elsewhere
+        (`/bin/install_addon`, i.e. OpenCCU); elsewhere
         `supported` is false and the check/install verbs answer 404.
       responses:
         "200":
@@ -1794,7 +1809,7 @@ paths:
       summary: Restart a CCU into its recovery system
       tags: [system]
       description: >
-        Restarts the CCU into the separate recovery system reachable on the CCU's own address. OpenCCU / RaspberryMatic only - a stock CCU3 has no such method and the error is reported rather than swallowed.
+        Restarts the CCU into the separate recovery system reachable on the CCU's own address. OpenCCU only - a stock CCU3 has no such method and the error is reported rather than swallowed.
         Admin-gated and audited. Answers 202 once the CCU accepted the
         request; 422 when the central's backend cannot host the action
         (CUxD, Homegear, or a firmware without the method).
@@ -2017,6 +2032,127 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SetupStatusResponse"
+  /setup/probe:
+    post:
+      operationId: setupProbeCentral
+      summary: Identify the system at an address (first-run wizard)
+      description: |
+        Reads what answers at the address: a CCU, an openccu-lite box (ready,
+        or starting), or neither. Over HTTPS a certificate no trusted
+        authority signed is read under a pin of the certificate the server
+        presented, and that fingerprint is reported for the operator to
+        confirm; only the open version document is read and no credential
+        is sent. Open only while first-run setup is required, like `POST /setup`, and rate-limited like the login.
+      tags: [setup]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CentralProbeRequest" }
+      responses:
+        "200":
+          description: What answers there
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CentralProbeResult" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "502":
+          description: Nothing could be reached at the address
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "403":
+          description: First-run onboarding disabled by bootstrap.allow_first_run_setup
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /setup/pairing:
+    post:
+      operationId: setupStartCentralPairing
+      summary: Start client pairing with an openccu-lite box
+      description: |
+        Asks the box's administrator to approve this daemon and answers the
+        six-digit code to enter on the box. The token an approved pairing
+        yields stays in the daemon; a central created with the answer's
+        `pairing_id` takes it. Pairing never grants the backup or power
+        scopes; paste a token created on the box for those.
+      tags: [setup]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CentralPairingRequest" }
+      responses:
+        "201":
+          description: Pairing started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CentralPairingStarted" }
+        "403":
+          description: The box does not accept a pairing request from here (switched off, or not its local network)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "502":
+          description: The box could not be reached
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /setup/pairing/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      operationId: setupGetCentralPairing
+      summary: A pairing's state
+      description: "`?wait=<seconds>` long-polls the box, up to 25 s."
+      tags: [setup]
+      security: []
+      parameters:
+        - { in: query, name: wait, required: false, schema: { type: integer, minimum: 0 } }
+      responses:
+        "200":
+          description: The state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CentralPairingStatus" }
+        "404":
+          description: No such pairing
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "403":
+          description: First-run onboarding disabled by bootstrap.allow_first_run_setup
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    delete:
+      operationId: setupCancelCentralPairing
+      summary: Withdraw a pairing
+      tags: [setup]
+      security: []
+      responses:
+        "204": { description: Withdrawn }
+        "404":
+          description: No such pairing
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "403":
+          description: First-run onboarding disabled by bootstrap.allow_first_run_setup
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /setup:
     post:
       operationId: setup
@@ -2321,8 +2457,10 @@ paths:
         - { in: query, name: code, required: true, schema: { type: string } }
         - { in: query, name: state, required: true, schema: { type: string } }
       responses:
-        "302":
-          description: Redirect to / on success
+        "303":
+          description: >-
+            Redirect to the SPA — to / on success, to the login route with
+            an `error` query parameter when the exchange fails.
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -2742,20 +2880,29 @@ paths:
   /system/firmware/download:
     post:
       operationId: downloadSystemFirmware
-      summary: Download a firmware image onto a CCU (admin-only)
+      summary: Download the newest firmware onto a CCU (admin-only)
       description: |
-        Instructs one CCU to fetch a firmware image from the supplied
-        http/https URL onto the central (posting to the CCU's maintenance
-        CGI) so it can be staged for a later install. The CCU performs the
-        transfer asynchronously; the endpoint returns 202 once the request
-        was accepted.
+        Asks one CCU to fetch the newest firmware **for itself** and stage
+        it for a later install (`POST /system/firmware/update` performs the
+        install).
+
+        The image cannot be chosen by the caller: the CCU resolves the
+        download from its own version and board serial. The request body's
+        `url` field is therefore accepted and ignored — it is kept in the
+        schema so clients written against an earlier version of this
+        contract keep working instead of failing validation.
+
+        Returns 202 once the CCU reported the download succeeded, and 502
+        when it reported a failure — there is no image for that version and
+        serial, or the transfer failed. The whole body is optional for
+        single-CCU deployments.
       tags: [system]
       security:
         - basicAuth: []
         - bearerAuth: []
         - openIdConnect: [admin]
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -2938,6 +3085,18 @@ paths:
       parameters:
         - { in: path, name: addr, required: true, schema: { type: string } }
         - { in: path, name: no, required: true, schema: { type: integer, minimum: 0 } }
+        - name: X-Edit-Token
+          in: header
+          required: false
+          schema: { type: string }
+          description: >-
+            Edit-lock token for a MASTER or LINK snapshot. Importing one is a
+            configuration write and passes the same per-resource edit lock as
+            PUT /devices/{addr}/paramsets/{key}: open an edit session (`POST
+            /sessions/edit` with key `channel:{addr}:{no}:{paramset_key}`) and
+            present the returned token here, else the import is rejected 423
+            Locked before any CCU call. A VALUES snapshot is ungated and
+            ignores this header.
       requestBody:
         required: true
         content:
@@ -2948,6 +3107,8 @@ paths:
           description: Import applied successfully
         "400":
           $ref: "#/components/responses/BadRequest"
+        "423":
+          $ref: "#/components/responses/Locked"
         "500":
           description: Apply failed (CCU write error)
           content:
@@ -3560,6 +3721,129 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/InboxDevice" }
+  /taxonomy:
+    get:
+      operationId: getTaxonomy
+      summary: Every central's taxonomy trees (rooms, functions, and other enums)
+      description: |
+        The only surface that shows nodes nothing is assigned to, so a
+        tree picker reads it rather than the device list. A CCU's
+        rooms and functions are flat enums whose node ids are the CCU's
+        object ids; an openccu-lite system nests nodes and may define
+        further enums.
+      tags: [hub]
+      parameters:
+        - in: query
+          name: central
+          required: false
+          schema: { type: string }
+          description: Restrict the answer to one central; unknown is 404.
+      responses:
+        "200":
+          description: The taxonomies
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaxonomyResponse" }
+        "404":
+          description: Unknown central
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+  /taxonomy/{central}/{enum}/nodes:
+    parameters:
+      - { in: path, name: central, required: true, schema: { type: string } }
+      - { in: path, name: enum, required: true, schema: { type: string } }
+    post:
+      operationId: createTaxonomyNode
+      summary: Create a taxonomy node (operator)
+      description: |
+        A node below `parent_path` needs the central's `taxonomy.tree`
+        feature; a CCU's rooms and functions are flat, so there only a
+        root node of `room` or `function` can be created.
+      tags: [hub]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [operator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaxonomyNodeCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaxonomyNodeCreated" }
+        "404":
+          description: Unknown central or parent
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422":
+          description: Invalid node, or a feature the central lacks (`feature_unavailable`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+    patch:
+      operationId: updateTaxonomyNode
+      summary: Rename and/or move a taxonomy node (operator)
+      tags: [hub]
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema: { type: string }
+          description: The node's path inside the enum (`eg/kueche`).
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [operator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaxonomyNodeUpdateRequest" }
+      responses:
+        "204": { description: Updated }
+        "404":
+          description: Unknown central or node
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422":
+          description: Invalid change, or a feature the central lacks (`feature_unavailable`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+    delete:
+      operationId: deleteTaxonomyNode
+      summary: Delete a taxonomy node and its subtree (operator)
+      description: The addresses assigned to the deleted nodes keep existing and lose the assignment.
+      tags: [hub]
+      parameters:
+        - in: query
+          name: path
+          required: true
+          schema: { type: string }
+          description: The node's path inside the enum (`eg/kueche`).
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [operator]
+      responses:
+        "204": { description: Deleted }
+        "404":
+          description: Unknown central or node
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422":
+          description: A feature the central lacks (`feature_unavailable`)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
   /rooms:
     get:
       operationId: listRooms
@@ -6383,6 +6667,116 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500": { $ref: "#/components/responses/InternalError" }
 
+  /centrals/probe:
+    post:
+      operationId: probeCentral
+      summary: Identify the system at an address (admin)
+      description: |
+        Reads what answers at the address: a CCU, an openccu-lite box (ready,
+        or starting), or neither. Over HTTPS a certificate no trusted
+        authority signed is read under a pin of the certificate the server
+        presented, and that fingerprint is reported for the operator to
+        confirm; only the open version document is read and no credential
+        is sent.
+      tags: [central-admin]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CentralProbeRequest" }
+      responses:
+        "200":
+          description: What answers there
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CentralProbeResult" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "502":
+          description: Nothing could be reached at the address
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+  /centrals/pairing:
+    post:
+      operationId: startCentralPairing
+      summary: Start client pairing with an openccu-lite box
+      description: |
+        Asks the box's administrator to approve this daemon and answers the
+        six-digit code to enter on the box. The token an approved pairing
+        yields stays in the daemon; a central created with the answer's
+        `pairing_id` takes it. Pairing never grants the backup or power
+        scopes; paste a token created on the box for those.
+      tags: [central-admin]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CentralPairingRequest" }
+      responses:
+        "201":
+          description: Pairing started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CentralPairingStarted" }
+        "403":
+          description: The box does not accept a pairing request from here (switched off, or not its local network)
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "502":
+          description: The box could not be reached
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+  /centrals/pairing/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      operationId: getCentralPairing
+      summary: A pairing's state
+      description: "`?wait=<seconds>` long-polls the box, up to 25 s."
+      tags: [central-admin]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      parameters:
+        - { in: query, name: wait, required: false, schema: { type: integer, minimum: 0 } }
+      responses:
+        "200":
+          description: The state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CentralPairingStatus" }
+        "404":
+          description: No such pairing
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+    delete:
+      operationId: cancelCentralPairing
+      summary: Withdraw a pairing
+      tags: [central-admin]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      responses:
+        "204": { description: Withdrawn }
+        "404":
+          description: No such pairing
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
   /centrals/discovered:
     get:
       operationId: listDiscoveredCentrals
@@ -6830,6 +7224,11 @@ paths:
             schema: { $ref: "#/components/schemas/AlarmVerbRequest" }
       responses:
         "204": { description: Acknowledged }
+        "409":
+          description: The zone has no finished incident to acknowledge.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -7387,7 +7786,9 @@ paths:
             schema: { $ref: "#/components/schemas/AlarmOutputTestRequest" }
       responses:
         "204": { description: Test fired }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
         "409":
           description: Refused — smoke-detector sounders cannot be live-tested via this endpoint.
           content:
@@ -7637,7 +8038,6 @@ components:
     StartupCaptureConfig:
       type: object
       required: [enabled, duration_seconds, anonymise]
-      additionalProperties: false
       description: >-
         The stored startup-capture toggle as the daemon reports it. Every
         field is always present in responses; the write shape with its
@@ -7654,8 +8054,12 @@ components:
         anonymise:
           type: boolean
           description: >-
-            Whether device-address-shaped values in the recorded archive are
-            hashed. Responses always carry the effective value.
+            Whether the archive's operator-identifying attributes are hashed
+            — the `subject`, `user`, `username`, `remote` and `remote_addr`
+            keys. Device addresses, channel addresses, parameter names and
+            interface ids stay in clear text, so an operator reading their own
+            archive can follow the trace. Responses always carry the effective
+            value.
     StartupCaptureConfigWrite:
       type: object
       required: [enabled, duration_seconds]
@@ -7743,17 +8147,22 @@ components:
     CreatedNamedResource:
       type: object
       description: |
-        Response of the room / function create verbs: the id the CCU assigned
-        and the name it was created under. The name is echoed rather than
-        assumed, because the CCU normalises it.
-      required: [id, name]
+        Response of the room / function create verbs: the id the CCU assigned,
+        the name it was created under, and the node's path inside its enum.
+        The name is echoed rather than assumed, because the CCU normalises it.
+      required: [name, path]
       properties:
         id:
-          type: string
-          description: CCU-assigned identifier of the created object.
+          type: integer
+          description: |
+            The CCU's numeric object id; absent for a system without one
+            (openccu-lite), whose nodes are addressed by `path`.
         name:
           type: string
-          description: Name as the CCU stored it.
+          description: Name as the system stored it.
+        path:
+          type: string
+          description: The node's path inside its enum (on a CCU the object id as a string).
     LinkParamset:
       type: object
       additionalProperties: true
@@ -8224,6 +8633,7 @@ components:
             - https://openccu-loom.dev/errors/bad_request
             - https://openccu-loom.dev/errors/service_unready
             - https://openccu-loom.dev/errors/upstream_unavailable
+            - https://openccu-loom.dev/errors/feature_unavailable
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
@@ -8243,6 +8653,26 @@ components:
             - bad_request
             - service_unready
             - upstream_unavailable
+            - feature_unavailable
+        feature:
+          type: object
+          required: [central, key, reason]
+          description: |
+            Set on a `feature_unavailable` problem (HTTP 422): the
+            operation needs a feature the target central does not offer
+            right now. The same key and reason appear in that central's
+            `features` map on `GET /system/ccu`.
+          properties:
+            central: { type: string }
+            key:
+              type: string
+              description: The feature key, for example `system.reboot` or `hub.sysvars`.
+            reason:
+              type: string
+              enum: [not_supported_by_system, missing_scope, not_ready]
+            scope:
+              type: string
+              description: The credential scope that would grant it, when `reason` is `missing_scope`.
         errors:
           type: array
           items:
@@ -8270,7 +8700,7 @@ components:
         addon_build:
           type: boolean
           description: |
-            True when this binary was built as the CCU/RaspberryMatic
+            True when this binary was built as the CCU/OpenCCU
             add-on (it then runs on the CCU itself). False for the
             standalone binary, Docker image, and HA add-on builds.
         uptime: { type: string }
@@ -8320,7 +8750,12 @@ components:
           type: array
           description: |
             Runtime feature set. Always-on entries:
-            `rest.v1`, `ws.broadcasts.v1`, `errors.problem_details.v1`.
+            `rest.v1`, `ws.broadcasts.v1`, `errors.problem_details.v1`,
+            `central.features.v1` (each central reports what it offers in
+            `features` on `GET /system/ccu`, and an operation a central
+            does not offer answers the `feature_unavailable` problem),
+            `south.openccu_lite.v1` (a central can be an openccu-lite
+            system: `system_type: openccu-lite`).
             Conditional entries surface only when configured:
             `mqtt.discovery.v1`, `mqtt.raw.v1`, `matter.bridge.v1`,
             `auth.oidc.v1`, `auth.ccu.v1`, `webhook.inbound.v1`,
@@ -8355,6 +8790,8 @@ components:
               - rest.v1
               - ws.broadcasts.v1
               - errors.problem_details.v1
+              - central.features.v1
+              - south.openccu_lite.v1
               - mqtt.discovery.v1
               - mqtt.raw.v1
               - matter.bridge.v1
@@ -8527,9 +8964,25 @@ components:
         leftover:
           type: array
           items: { $ref: "#/components/schemas/SuitableMemberEntry" }
+    CentralFeatureState:
+      type: object
+      required: [available]
+      description: One feature's availability on a central.
+      properties:
+        available:
+          type: boolean
+        reason:
+          type: string
+          enum: [not_supported_by_system, missing_scope, not_ready]
+          description: Why the feature is unavailable; absent when it is available.
+        scope:
+          type: string
+          description: |
+            The credential scope that would grant the feature, when
+            `reason` is `missing_scope` (for example `power` or `backup`).
     SystemCCUEntry:
       type: object
-      required: [name, host, available, is_ha_app, configured_interfaces, readiness]
+      required: [name, host, available, is_ha_app, configured_interfaces, readiness, features]
       description: |
         One CCU as known to the daemon. `name` is the daemon-local
         identifier (config-driven, multi-CCU-safe). The other fields
@@ -8607,10 +9060,36 @@ components:
           type: boolean
           description: |
             Whether this CCU offers a recovery system
-            (`POST .../recovery-mode`). True for OpenCCU / RaspberryMatic
+            (`POST .../recovery-mode`). True for OpenCCU
             firmware, false for a stock CCU3 and while the product is not
             yet known — so a client hides the action rather than offering
-            one that cannot work.
+            one that cannot work. Derived from the `system.recovery_mode`
+            entry of `features`.
+        system_type:
+          type: string
+          enum: [ccu, openccu-lite]
+          description: |
+            The kind of system behind the central. `ccu` is a CCU with
+            ReGaHss and the WebUI JSON-RPC (eQ-3 CCU, OpenCCU,
+            RaspberryMatic); `openccu-lite` is a system managed through the
+            occulited API. Absent until the central's first bring-up has
+            resolved it.
+        features:
+          type: object
+          description: |
+            What the central can do right now, keyed by feature
+            (`hub.sysvars`, `hub.programs`, `hub.service_messages`,
+            `system.reboot`, `system.backup.create`, `taxonomy.tree`,
+            `install_mode`, …). Every known key is present. An unavailable
+            feature carries the reason: the system has no such feature, the
+            daemon's credential lacks the scope that grants it, or the
+            central has not finished its first bring-up. A client hides an
+            unavailable action instead of offering one that fails. Pushed
+            live as the `central.features_changed` WebSocket event.
+          propertyNames:
+            type: string
+          additionalProperties:
+            $ref: '#/components/schemas/CentralFeatureState'
         ccu_interfaces:
           type: array
           description: |
@@ -8705,6 +9184,103 @@ components:
             `/config` path-level description for the canonical key
             catalogue.
           additionalProperties: { type: boolean }
+    TaxonomyNodeCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        parent_path:
+          type: string
+          description: The parent node's path inside the enum; absent or empty for a root node.
+        name: { type: string }
+    TaxonomyNodeCreated:
+      type: object
+      required: [path]
+      properties:
+        path:
+          type: string
+          description: The new node's path inside the enum.
+    TaxonomyNodeUpdateRequest:
+      type: object
+      properties:
+        name: { type: string }
+        parent_path:
+          type: string
+          description: Move below this node; an empty string moves to the root.
+        position:
+          type: integer
+          description: Zero-based place among the new siblings; absent appends.
+    TaxonomyResponse:
+      type: object
+      required: [centrals]
+      properties:
+        centrals:
+          type: array
+          items: { $ref: "#/components/schemas/TaxonomyCentral" }
+    TaxonomyCentral:
+      type: object
+      required: [central, revision, writable, tree, enums]
+      properties:
+        central: { type: string }
+        revision:
+          type: integer
+          description: The source's revision counter; 0 for a system without one (a CCU).
+        writable:
+          type: boolean
+          description: Whether nodes can be created, renamed and deleted (feature `taxonomy.edit`).
+        tree:
+          type: boolean
+          description: Whether nodes can nest (feature `taxonomy.tree`); a CCU's enums are flat.
+        enums:
+          type: array
+          items: { $ref: "#/components/schemas/TaxonomyEnum" }
+    TaxonomyEnum:
+      type: object
+      required: [id, nodes]
+      properties:
+        id:
+          type: string
+          description: The enum id, for example `room` or `function`.
+        names:
+          type: object
+          additionalProperties: { type: string }
+          description: The enum's display name per language tag.
+        nodes:
+          type: array
+          items: { $ref: "#/components/schemas/TaxonomyNode" }
+    TaxonomyNode:
+      type: object
+      required: [id, path, name]
+      properties:
+        id: { type: string }
+        path:
+          type: string
+          description: The node's path inside the enum.
+        name: { type: string }
+        icon: { type: string }
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/TaxonomyNode" }
+    TaxonomyAssignment:
+      type: object
+      required: [enum, path, name]
+      description: |
+        One taxonomy node an address is directly assigned to. On a CCU
+        every enum is flat and a node's path is the CCU's object id of
+        the room or function; an openccu-lite system nests nodes
+        (`eg/wohnzimmer`).
+      properties:
+        enum:
+          type: string
+          description: The enum id, for example `room` or `function`.
+        path:
+          type: string
+          description: The node's path inside the enum, node ids joined by `/`.
+        name:
+          type: string
+          description: The node's display name.
+        parent_path:
+          type: string
+          description: The parent node's path inside the enum; absent for a root node.
     DeviceSummary:
       type: object
       required:
@@ -8781,6 +9357,16 @@ components:
           type: array
           items: { type: string }
           description: Resolved "Gewerke" (function) labels for the device.
+        taxonomy:
+          type: array
+          items: { $ref: "#/components/schemas/TaxonomyAssignment" }
+          description: |
+            Every taxonomy node the device or one of its channels is
+            directly assigned to, in every enum (rooms, functions and
+            whatever else the system defines), with the node's path.
+            `rooms` and `functions` keep carrying the names; this adds
+            what names cannot say when two nodes share one or nodes nest.
+            Omitted when the device has no assignment.
         master_pushes_config_pending:
           type: boolean
           description: |
@@ -9014,6 +9600,12 @@ components:
             map functions at channel granularity instead of folding them
             up to the device. Omitted when the channel carries no function
             assignment.
+        taxonomy:
+          type: array
+          items: { $ref: "#/components/schemas/TaxonomyAssignment" }
+          description: |
+            The taxonomy nodes the channel is directly assigned to, in
+            every enum, with their paths. Omitted when there are none.
         is_custom_dp_primary:
           type: boolean
           description: |
@@ -9050,6 +9642,22 @@ components:
 
             Omitted when the channel exposes no event sources, which is the
             common case; only trigger-capable channels grow the payload.
+        link_source_roles:
+          type: array
+          items: { type: string }
+          description: |
+            Raw CCU `LINK_SOURCE_ROLES` tokens — what this channel can act
+            as the source (sender) of in a direct link. Omitted when the
+            channel cannot take part in a direct link on that side, so a
+            consumer answers "sender / receiver / both" per channel without
+            fetching the link surface.
+        link_target_roles:
+          type: array
+          items: { type: string }
+          description: |
+            Raw CCU `LINK_TARGET_ROLES` tokens — what this channel can act
+            as the target (receiver) of in a direct link. Omitted when the
+            channel cannot take part in a direct link on that side.
     MQTTReloadResponse:
       type: object
       required: [reloaded, took_ms]
@@ -10654,7 +11262,7 @@ components:
       properties:
         candidates:
           type: array
-          items: { type: string, description: "parameter name (bare) or MODEL:CHANNEL:PARAMETER full-form" }
+          items: { type: string, description: "bare parameter name, or the fully-qualified PARAMETER:PARAMSET@MODEL:CHANNEL form" }
         include_master: { type: boolean }
         groups:
           type: array
@@ -10962,6 +11570,26 @@ components:
           description: "True only once southbound bring-up has latched complete (phase == ready)."
         interfaces_loaded: { type: integer, minimum: 0 }
         interfaces_total: { type: integer, minimum: 0 }
+
+    CentralFeaturesChangedPayload:
+      type: object
+      description: |
+        Payload of a `central.features_changed` broadcast. Topic pattern
+        `central.{name}.features`. Carries the central's complete current
+        feature set (the same map `/system/ccu` reports as `features`), not
+        a delta.
+      required: [central, features]
+      properties:
+        central: { type: string }
+        system_type:
+          type: string
+          enum: [ccu, openccu-lite]
+        features:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            $ref: '#/components/schemas/CentralFeatureState'
 
     SystemStatusChangedPayload:
       type: object
@@ -12134,8 +12762,18 @@ components:
           enum: [always, standalone]
         gate:
           type: string
-          description: Runtime capability the surface additionally needs.
-          enum: [matter, history]
+          description: |
+            Runtime capability the surface additionally needs. A
+            `feature:<key>` gate is open while at least one central
+            offers that feature (see `features` on `GET /system/ccu`).
+          enum:
+            - matter
+            - history
+            - feature:hub.programs
+            - feature:hub.sysvars
+            - feature:hub.inbox
+            - feature:heating_groups.read
+            - feature:system.backup.create
         warn:
           type: string
           description: |
@@ -12424,11 +13062,100 @@ components:
           type: array
           items: { type: string }
           description: |
-            MODEL:CHANNEL:PARAMETER patterns (with `*` wildcards) that
-            promote parameters from the default-hidden set into the
-            visible data-point surface. Bare parameter names are
-            treated as *:*:PARAMETER.
+            Patterns that promote parameters from the default-hidden set
+            into the visible data-point surface. Two forms are accepted:
+            a bare `PARAMETER`, which matches every VALUES paramset on
+            any model and channel, or the fully-qualified
+            `PARAMETER:PARAMSET@MODEL:CHANNEL`, where MODEL may be `all`
+            and CHANNEL may be `all` or empty for any channel. A colon
+            without an `@` is rejected.
 
+            Stored per central, effective across the whole fleet: a
+            pattern names a model, a channel and a parameter, none of
+            which identify a CCU.
+
+    CentralProbeRequest:
+      type: object
+      required: [host]
+      properties:
+        host: { type: string }
+        port:
+          type: integer
+          description: The web server port; 0 or absent means 80, or 443 with tls.
+        tls: { type: boolean }
+        tls_insecure_skip_verify: { type: boolean }
+    CentralProbeResult:
+      type: object
+      required: [system_type, ready]
+      properties:
+        system_type:
+          type: string
+          enum: [ccu, openccu-lite, unknown]
+        ready:
+          type: boolean
+          description: Whether the system serves its API now; an openccu-lite box that is starting is identified but not ready.
+        tls_fingerprint:
+          type: string
+          description: SHA-256 (lower-case hex) of the certificate the server presented over HTTPS, to pin.
+        lite: { $ref: "#/components/schemas/LiteProbeInfo" }
+    LiteProbeInfo:
+      type: object
+      required: [pairing_available]
+      properties:
+        implementation: { type: string }
+        api_majors:
+          type: object
+          additionalProperties: { type: integer }
+        pairing_available: { type: boolean }
+        hmip_key_mode: { $ref: "#/components/schemas/HMIPKeyMode" }
+    HMIPKeyMode:
+      type: object
+      required: [keyserver_mode, device_keys, offline_pairing]
+      description: The key-mode summary of a box's HomeMatic IP radio; it never carries a key.
+      properties:
+        keyserver_mode: { type: string }
+        device_keys: { type: integer }
+        offline_pairing: { type: boolean }
+    CentralPairingRequest:
+      type: object
+      required: [host]
+      properties:
+        host: { type: string }
+        port: { type: integer }
+        tls: { type: boolean }
+        tls_fingerprint:
+          type: string
+          description: The certificate to pin (from the probe); needed over HTTPS for a certificate no trusted authority signed.
+        access:
+          type: string
+          enum: [full, control, read]
+          description: What to ask the box's administrator for; full is the default.
+    CentralPairingStarted:
+      type: object
+      required: [pairing_id, code, expires_in]
+      properties:
+        pairing_id: { type: string }
+        code:
+          type: string
+          description: The six digits the box's administrator enters on the box.
+        fingerprint:
+          type: string
+          description: The certificate fingerprint both sides agreed on; empty over plain HTTP.
+        expires_in:
+          type: integer
+          description: Seconds the pairing request stays valid.
+    CentralPairingStatus:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [pending, approved, rejected, expired, error]
+        scopes:
+          type: array
+          items: { type: string }
+          description: The scopes an approved pairing granted.
+        error: { type: string }
     CentralRow:
       type: object
       required: [name, host, interfaces, enabled]
@@ -12464,7 +13191,45 @@ components:
           type: integer
           minimum: 0
           maximum: 65535
-          description: HTTP port for JSON-RPC and web endpoints. 0 defaults to 80 (plain) / 443 (TLS).
+          description: >-
+            HTTP(S) port of the system's web server — JSON-RPC and web
+            endpoints on a CCU, the occulited API on openccu-lite. 0 defaults
+            to 80 (plain) / 443 (TLS).
+        system_type:
+          type: string
+          enum: [ccu, openccu-lite, auto]
+          description: >-
+            Kind of system behind the central. Empty means `ccu`, so a row
+            written before the field existed keeps its meaning. An
+            `openccu-lite` central needs `api_token_plain` or `api_token_env`
+            and must not carry username, password or port overrides; a `ccu`
+            central must not carry an API token or a fingerprint. A write that
+            breaks a rule is refused with 400 naming the field.
+        api_token_env:
+          type: string
+          description: >-
+            Environment variable name whose value is the openccu-lite API
+            token (preferred over api_token_plain). Omitted for callers below
+            the admin role.
+        api_token_plain:
+          type: string
+          description: >-
+            The openccu-lite API token, sealed at rest. Never returned in the
+            clear: reads carry the mask `***`, and a write that sends the mask
+            back (or omits the key, or sends null) keeps the stored token; an
+            explicit empty string clears it.
+        tls_fingerprint:
+          type: string
+          description: >-
+            SHA-256 (lower-case hex) of the openccu-lite system's certificate.
+            When set, TLS trusts exactly this certificate. Requires tls.
+        pairing_id:
+          type: string
+          writeOnly: true
+          description: >-
+            The id of an approved client pairing (POST /centrals/pairing). The
+            central takes that pairing's token and pinned fingerprint on the
+            server; the token never travels through the client.
         username:
           type: string
         password_env:
@@ -12643,10 +13408,19 @@ components:
             multiplied out in that base's own unit rather than rounded to a
             larger one, so a 65-second slot reads "65s" and not "1min".
             Empty when the slot carries no duration.
+
+            The reserved word `permanent` is the one value that is not a
+            time: it means the switch point does not expire, and it is what
+            the CCU's own weekly-program editor offers as the alternative to
+            entering a duration. It reads back as `permanent` and is accepted
+            on write (case-insensitively). Do not confuse it with the empty
+            string, which means "leave the device's duration untouched".
         ramp_time:
           type: string
           description: >
-            Dimmer ramp time, same format and exactness rule as `duration`.
+            Dimmer ramp time, same format and exactness rule as `duration`,
+            including the reserved word `permanent` — the CCU builds both
+            editors from one helper, so the encoding is shared.
         lock_mode: { type: string }
         lock_action: { type: string }
         permission: { type: string }
@@ -12678,7 +13452,6 @@ components:
         corrections:
           type: array
           items: { $ref: "#/components/schemas/ScheduleTimeCorrection" }
-      additionalProperties: false
     ScheduleTimeCorrection:
       type: object
       required: [profile, weekday, period, field, requested, applied]
@@ -12691,7 +13464,6 @@ components:
           enum: [start_time, end_time]
         requested: { type: string, description: "The submitted value" }
         applied: { type: string, description: "The value actually stored" }
-      additionalProperties: false
     Schedule:
       type: object
       required: [channel, kind]
@@ -13064,6 +13836,13 @@ components:
       properties:
         name: { type: string }
         device_count: { type: integer }
+        refs:
+          type: array
+          items: { $ref: "#/components/schemas/NodeRef" }
+          description: |
+            The taxonomy nodes carrying this name, per central. Two nodes
+            of one name (a "Küche" on two floors) are one entry with two
+            refs; omitted when no device carries a node reference.
 
     Incident:
       type: object
@@ -13203,6 +13982,17 @@ components:
         ends_at: { type: string }
         randomize: { type: boolean }
 
+    NodeRef:
+      type: object
+      required: [central, path]
+      description: One taxonomy node, located by central and path inside its enum.
+      properties:
+        central: { type: string }
+        path: { type: string }
+        parent_path:
+          type: string
+          description: The parent node's path; absent for a root node.
+
     RoomEntry:
       type: object
       required: [name, device_count]
@@ -13210,6 +14000,13 @@ components:
       properties:
         name: { type: string }
         device_count: { type: integer }
+        refs:
+          type: array
+          items: { $ref: "#/components/schemas/NodeRef" }
+          description: |
+            The taxonomy nodes carrying this name, per central. Two nodes
+            of one name (a "Küche" on two floors) are one entry with two
+            refs; omitted when no device carries a node reference.
 
     AddonUpdateStatus:
       type: object
@@ -14209,16 +15006,23 @@ components:
             otherwise.
         manufacturer: { type: string }
         model: { type: string }
+        system_type:
+          type: string
+          enum: [ccu, openccu-lite]
+          description: How the discovered system is reached, from its UPnP description; the wizard pre-selects it.
         last_seen: { type: string, format: date-time }
         already_configured: { type: boolean }
     DownloadSystemFirmwareRequest:
       type: object
-      required: [url]
       properties:
         url:
           type: string
           format: uri
-          description: http/https firmware image the CCU should fetch.
+          deprecated: true
+          description: >-
+            Accepted and ignored. The CCU has no call that fetches a
+            caller-supplied image; it downloads the firmware matching its
+            own version and board serial.
         central:
           type: string
           description: Target central (optional for single-CCU deployments).
@@ -14439,6 +15243,17 @@ components:
           description: |
             Replaces the channel's function (Gewerk)
             assignments. Unknown names are silently skipped.
+        room_paths:
+          type: array
+          items: { type: string }
+          description: |
+            Assign by node reference (`room/eg/kueche`) instead of by name;
+            wins over `rooms` when both are given. A reference names one of
+            two rooms that share a name. Paths come from `GET /taxonomy`.
+        function_paths:
+          type: array
+          items: { type: string }
+          description: As `room_paths`, for functions (`function/licht`).
     PatchDeviceRequest:
       type: object
       properties:
@@ -14454,6 +15269,17 @@ components:
         functions:
           type: array
           items: { type: string }
+        room_paths:
+          type: array
+          items: { type: string }
+          description: |
+            Assign by node reference (`room/eg/kueche`) instead of by name;
+            wins over `rooms` when both are given. A reference names one of
+            two rooms that share a name. Paths come from `GET /taxonomy`.
+        function_paths:
+          type: array
+          items: { type: string }
+          description: As `room_paths`, for functions (`function/licht`).
     PatchSysvarRequest:
       type: object
       properties:
@@ -14640,8 +15466,25 @@ components:
           properties:
             name: { type: string, minLength: 1 }
             host: { type: string, minLength: 1 }
+            system_type:
+              type: string
+              enum: [ccu, openccu-lite, auto]
+              description: Kind of system; empty means ccu.
             username: { type: string }
             password: { type: string }
+            api_token:
+              type: string
+              description: The occulited API token an openccu-lite system requires (`olt_` + 32 lower-case hex digits).
+            tls: { type: boolean }
+            tls_fingerprint:
+              type: string
+              description: SHA-256 (lower-case hex) of an openccu-lite system's certificate to pin; requires tls.
+            port:
+              type: integer
+              description: The system's web server port; 0 or absent means 80, or 443 with tls.
+            pairing_id:
+              type: string
+              description: An approved pairing (POST /setup/pairing) whose token the central takes instead of api_token.
             interfaces:
               type: array
               minItems: 1

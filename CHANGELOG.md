@@ -3,6 +3,25 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.0] - 2026-09-28
+
+Tracks the daemon's API 12.0.0 (openccu-loom 0.79.0), up from 10.1.0.
+
+### Changed
+
+- **`SUPPORTED_API_MAJOR` raised 10 -> 12 and the vendored spec refreshed to
+  the v0.79.0 tag.** Every REST path and WebSocket command this package uses
+  is still in the spec (`test/api-surface.test.js`). The two breaking changes
+  in between reach no node: API 12.0.0 changed the answer of `POST /rooms` and
+  `POST /functions`, which no node calls, and API 11.0.0 changed
+  `POST /system/firmware/download` (below).
+
+- **`device admin` `firmware-download` no longer needs `msg.url`.** Since API
+  11.0.0 the CCU downloads the firmware for its own version and board serial,
+  and the daemon accepts a URL only to ignore it. The node refused to run
+  without one, and forwarded it when given; it now sends only the optional
+  `central`.
+
 ## [0.6.0] - 2026-09-01
 
 Tracks the daemon's API 10.1.0 (openccu-loom 0.71.0), up from 7.12.0.

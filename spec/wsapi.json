@@ -1,5 +1,5 @@
 {
- "version": "1.9",
+ "version": "1.11",
  "envelope": {
   "description": "Shape of every WebSocket frame the daemon emits — both command replies and broadcasts. The `payload` member is replaced per-frame; broadcast entries below name the OpenAPI schema (in assets/openapi.yaml under components.schemas) that pins its structure.",
   "fields": {
@@ -30,7 +30,7 @@
   "description": "Client → server: append `released_only: true` to a subscribe op to drop every frame about a device the onboarding wizard has not released — the device.created / device.removed / device.availability_changed lifecycle frames and the datapoint.value_changed stream alike. Off by default and per connection, because this plane serves two kinds of consumer at once: the Config UI, which MUST see a device that is still being onboarded in order to configure it, and an ecosystem client, which must not adopt it before it is named. The `device.released` frame is never dropped — it is what lifts the filter, and withholding it would leave a filtering client unable to ever learn the device became adoptable. Frames that name no device (hub, system, alarm) are never affected. Pass `released_only: false` to turn it back off; an absent field leaves the current preference untouched across re-subscribes, exactly like `classify`."
  },
  "subscription_ack": {
-  "description": "After a `{op:\"subscribe\", topics:[...]}` or `{op:\"unsubscribe\", topics:[...]}` is processed, the daemon echoes one `{op:\"subscribed\"|\"unsubscribed\", topics:[...]}` frame carrying the topics the client just requested. Reconnect-after-failure logic can use this ACK to confirm the subscription set survived the round trip without needing to inspect daemon-side state. An empty topics array suppresses the ACK to keep no-op subscribes quiet."
+  "description": "After a `{op:\"subscribe\", topics:[...]}` or `{op:\"unsubscribe\", topics:[...]}` is processed, the daemon echoes one `{op:\"subscribed\"|\"unsubscribed\", topics:[...]}` frame carrying the topics the client just requested. Reconnect-after-failure logic can use this ACK to confirm the subscription set survived the round trip without needing to inspect daemon-side state. An empty or absent topics array is acknowledged too: the ACK is unconditional, so a client that waits for it before considering the subscription set applied never hangs on a preference-only frame such as {op:\"subscribe\", topics:[], classify:true}."
  },
  "protocol_error": {
   "description": "A text frame that is not valid JSON, or whose `op` is not one of the operations documented here, is answered with `{op:\"error\", error:{code:\"bad_request\", message:\"...\"}}` rather than being dropped silently. The connection stays open — only a WebSocket-framing violation (RFC 6455 §5, e.g. a binary frame or an interleaved fragment) closes it, with a close code instead of this frame."
@@ -241,6 +241,14 @@
    "name": "central.readiness_changed",
    "topic": "central.{name}.readiness",
    "payload": "CentralReadinessChangedPayload"
+  },
+  {
+   "category": "central",
+   "description": "Server-pushed: the set of features a central offers changed (its first bring-up resolved the system, or the daemon's credential gained or lost a scope). Carries the complete current set keyed by feature, each with available, reason and scope, so the UI shows or hides what the central can do without polling /system/ccu.",
+   "kind": "broadcast",
+   "name": "central.features_changed",
+   "topic": "central.{name}.features",
+   "payload": "CentralFeaturesChangedPayload"
   },
   {
    "category": "central",
@@ -651,6 +659,60 @@
    "args": {
     "id": "integer",
     "central": "string?"
+   }
+  },
+  {
+   "category": "taxonomy",
+   "description": "Every central's taxonomy trees \u2014 rooms, functions and further enums \u2014 with each node's path, empty nodes included. Optional central narrows to one; an unknown central is not_found. Same answer as REST GET /taxonomy.",
+   "name": "taxonomy.list",
+   "args": {
+    "central": "string?"
+   },
+   "result": {
+    "centrals": "array"
+   }
+  },
+  {
+   "category": "taxonomy",
+   "description": "Create a taxonomy node below parent_path (absent or empty: a root node). A nested node needs the central's taxonomy.tree feature; a CCU's rooms and functions are flat. Returns {path}. Operator-gated.",
+   "name": "taxonomy.node_create",
+   "args": {
+    "central": "string?",
+    "enum": "string",
+    "parent_path": "string?",
+    "name": "string"
+   },
+   "result": {
+    "path": "string"
+   }
+  },
+  {
+   "category": "taxonomy",
+   "description": "Rename a taxonomy node (name) and/or move it below parent_path (empty string: the root) at position. Moving needs taxonomy.tree. Operator-gated.",
+   "name": "taxonomy.node_update",
+   "args": {
+    "central": "string?",
+    "enum": "string",
+    "path": "string",
+    "name": "string?",
+    "parent_path": "string?",
+    "position": "integer?"
+   },
+   "result": {
+    "ok": "boolean"
+   }
+  },
+  {
+   "category": "taxonomy",
+   "description": "Delete a taxonomy node and its subtree; the addresses assigned to them keep existing and lose the assignment. Operator-gated.",
+   "name": "taxonomy.node_delete",
+   "args": {
+    "central": "string?",
+    "enum": "string",
+    "path": "string"
+   },
+   "result": {
+    "ok": "boolean"
    }
   },
   {
@@ -1084,7 +1146,7 @@
   },
   {
    "category": "schedules",
-   "description": "Select the active climate profile (P1..P6) on a thermostat channel.",
+   "description": "Select the active climate profile (P1..P6) on a thermostat channel. profile_index is 1-based here (P1 is 1); the REST field active_profile_index is 0-based, so add 1 when feeding one to the other.",
    "name": "schedules.active_profile.set",
    "args": {
     "channel_address": "string",

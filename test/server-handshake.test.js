@@ -75,7 +75,7 @@ describe("openccu-loom-server handshake", function () {
       addon_build: false,
       uptime: "1h",
       started_at: "2026-01-01T00:00:00Z",
-      api_version: "10.1.0",
+      api_version: "12.0.0",
       schema_digest: "sha256:deadbeef",
       capabilities: ["rest.v1", "alarm.v1"],
     });
@@ -87,7 +87,7 @@ describe("openccu-loom-server handshake", function () {
     n1.warn = (text) => warnCalls.push(text);
 
     await n1.refreshInfo(true);
-    assert.strictEqual(n1.api.version, "10.1.0");
+    assert.strictEqual(n1.api.version, "12.0.0");
     assert.strictEqual(n1.api.major, SUPPORTED_API_MAJOR);
     assert.strictEqual(n1.api.supported, true);
     assert.deepStrictEqual(n1.api.capabilities, ["rest.v1", "alarm.v1"]);

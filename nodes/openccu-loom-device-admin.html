@@ -117,7 +117,7 @@
       reply may carry an advisory <code>duty_cycle_warning</code>; the update is
       never rejected on that basis.</li>
     <li><b>firmware-download</b> — <code>POST /system/firmware/download</code>
-      pulls a firmware image onto the CCU from <code>msg.url</code> (admin).</li>
+      asks the CCU to download the newest firmware for itself and stage it for a later install (admin). The CCU picks the image from its own version and board serial; a URL cannot be given.</li>
     <li><b>test</b> — <code>POST /devices/{addr}/test</code> runs the per-device
       communication test and reports <code>passed</code> / <code>duration_ms</code>.</li>
     <li><b>restore-config</b> — <code>POST /devices/{addr}/config/restore</code>

@@ -231,8 +231,10 @@ const CASES = [
     deviceAdminNode,
     "openccu-loom-device-admin",
     { action: "firmware-download" },
+    // API 11.0.0: the CCU picks its own image and ignores a URL, so a
+    // msg.url from an older flow is not forwarded.
     { url: "https://example.invalid/fw.tgz" },
-    { method: "POST", url: "/system/firmware/download", body: { url: "https://example.invalid/fw.tgz" } },
+    { method: "POST", url: "/system/firmware/download", body: {} },
   ],
   [
     "device-admin channel-update",
