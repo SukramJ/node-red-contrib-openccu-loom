@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: openccu-loom REST API
-  version: 12.0.0
+  version: 13.9.1
   description: |
     North-bound REST + WebSocket surface of the openccu-loom daemon.
     Errors follow RFC 9457 problem+json.
@@ -58,6 +58,300 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Info" }
+
+  /sbom:
+    get:
+      operationId: getSBOM
+      tags: [core]
+      summary: Software bill of materials of this build
+      description: |
+        The CycloneDX 1.6 SBOM the release build embeds: the Go module
+        graph of the daemon plus the npm dependency tree of the embedded
+        Config UI, with license identifiers. The web UI's Licenses page
+        renders it; `?download=1` adds a Content-Disposition so a browser
+        saves it as a file. A development build carries no SBOM and
+        answers 404 — that is a property of the build, not an error state
+        a client should retry.
+      parameters:
+        - name: download
+          in: query
+          required: false
+          schema: { type: string }
+          description: When set, the response carries a Content-Disposition attachment header.
+      responses:
+        "200":
+          description: The embedded SBOM (CycloneDX JSON).
+          content:
+            application/json:
+              schema:
+                type: object
+                description: CycloneDX 1.6 document; shape governed by the CycloneDX spec, not this contract.
+                additionalProperties: true
+        "404":
+          description: This build was produced without an SBOM.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /pairing:
+    post:
+      operationId: startPairing
+      tags: [auth]
+      summary: Ask for an API token via code pairing
+      security: []
+      description: |
+        Client token pairing (ADR 0076), the same protocol this daemon
+        speaks as a client against an openccu-lite box. The caller sends
+        `commit` = hex SHA-256 of a random client nonce (≥16 bytes) and
+        the role it asks for (`viewer` or `operator` — `admin` is never
+        pairable). The answer carries the server's `nonce`, a `poll`
+        secret and the SHA-256 `fingerprint` of the certificate the
+        daemon serves (empty over plain HTTP). Both sides derive the
+        six-digit code from SHA-256(nonce ‖ client_nonce ‖ fingerprint);
+        an administrator types it in the tokens panel to approve.
+        Local-network callers only; the request expires after five
+        minutes. Nothing becomes a credential without the typed code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PairingAsk" }
+      responses:
+        "202":
+          description: The request waits for the administrator.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PairingAnswer" }
+        "400":
+          description: Invalid ask (role, commit, field shapes).
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "403":
+          description: Caller is not on a local network (`pairing_not_local`).
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429":
+          description: Protocol limits (`rate_limited`) — pending cap, per-hour cap, or a recent rejection's mute.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "503":
+          description: Pairing is switched off (`pairing_off`).
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /pairing/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: pollPairing
+      tags: [auth]
+      summary: Wait for the pairing decision
+      security: []
+      description: |
+        Authenticated by the request's own poll secret in
+        `Authorization: Pairing <secret>`. The first poll reveals
+        `client_nonce` (hex, matching the commitment); `wait` long-polls
+        up to 30 s. The `approved` answer carries the token exactly
+        once — the request is gone afterwards, and a plain re-poll
+        answers 404. Polling faster than the announced interval without
+        waiting answers 429 `pairing_slow_down`.
+      parameters:
+        - name: client_nonce
+          in: query
+          required: false
+          schema: { type: string }
+        - name: wait
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: The current state; the token exactly once on approval.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PairingResult" }
+        "401":
+          description: Not this request's poll secret.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "404":
+          description: Unknown or already-answered request.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429":
+          description: "`pairing_slow_down`: poll at the announced interval."
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+    delete:
+      operationId: withdrawPairing
+      tags: [auth]
+      summary: Withdraw the pairing request
+      security: []
+      description: The asking client gives up, authenticated by its poll secret.
+      responses:
+        "204": { description: Withdrawn. }
+        "401":
+          description: Not this request's poll secret.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "404":
+          description: Unknown request.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /pairing-requests:
+    get:
+      operationId: listPairingRequests
+      tags: [auth]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      summary: Pending pairing requests, with their codes
+      description: |
+        The admin card behind the tokens panel: every request whose
+        client already revealed its half of the code, oldest first.
+        `look_alike` marks a second pending request from the same
+        address or app+instance — compare the code carefully. Updates
+        are announced on the `pairing.requests_changed` WS broadcast.
+      responses:
+        "200":
+          description: The pending requests.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PairingRequestList" }
+
+  /pairing-requests/{id}/approve:
+    post:
+      operationId: approvePairing
+      tags: [auth]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      summary: Approve a pairing by typing its code
+      description: |
+        The typed code IS the authentication of the approval: a wrong
+        code rejects the request and mutes its (address, app) pair for
+        ten minutes, because a mismatch means the administrator compared
+        against a different request than the one asking.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PairingApproveRequest" }
+      responses:
+        "204": { description: Approved — the client's next poll carries its token. }
+        "404":
+          description: Unknown or no-longer-pending request.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "409":
+          description: Wrong code (request now rejected), or the client has not revealed its half yet.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /pairing-requests/{id}/reject:
+    post:
+      operationId: rejectPairing
+      tags: [auth]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      summary: Reject a pairing request
+      description: Rejects and mutes the (address, app) pair for ten minutes.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Rejected. }
+        "404":
+          description: Unknown or no-longer-pending request.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /warnings:
+    get:
+      operationId: listWarnings
+      tags: [core]
+      summary: Operator warnings, with the caller's silences
+      description: |
+        One server-side aggregate over the daemon's diagnostic surfaces:
+        unhealthy or degraded health components, error-grade incidents of
+        the last 24 hours (grouped per component), and per-central
+        service-message backlogs. `message_key` names the UI catalogue
+        entry that renders the row and `args` carries its interpolation
+        values, so the daemon stays the naming authority. Each row says
+        whether the CALLING user silenced it; silences of other users are
+        invisible here.
+      responses:
+        "200":
+          description: The active warnings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WarningList" }
+
+  /warnings/{id}/silence:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: The warning's stable id, e.g. `health:mqtt`.
+    put:
+      operationId: silenceWarning
+      tags: [core]
+      summary: Mute one active warning for the calling user
+      description: |
+        The silence ends after `days`, or earlier when the warning's
+        condition clears — a re-occurrence must alert again. Silencing a
+        warning that is not currently active answers 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WarningSilenceRequest" }
+      responses:
+        "204": { description: Silenced. }
+        "400":
+          description: Invalid period or body.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "404":
+          description: No active warning with this id.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+    delete:
+      operationId: unsilenceWarning
+      tags: [core]
+      summary: Remove the calling user's silence for one warning
+      responses:
+        "204": { description: Unsilenced (idempotent). }
 
   /health:
     get:
@@ -198,8 +492,10 @@ paths:
         query flags map onto the CCU delete bitmask: `reset=true` also
         factory-resets the device during removal, and `force=true` removes
         an unreachable device even when the CCU cannot complete the
-        handshake. Both default to false (plain unpair). A backend without a
-        pairing concept (CUxD) answers 422.
+        handshake. Both default to false (plain unpair). An address no
+        central's model holds — never paired, or already removed — answers
+        404 without a CCU call. A backend without a pairing concept (CUxD)
+        answers 422.
       tags: [devices]
       security:
         - basicAuth: []
@@ -224,6 +520,7 @@ paths:
       responses:
         "202":
           description: Unpair dispatched asynchronously
+        "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
@@ -254,6 +551,7 @@ paths:
         "202":
           description: Update accepted
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
@@ -538,9 +836,20 @@ paths:
         (`config.session.*` WS commands) when you need transactional
         rollback across multiple writes.
 
-        The CCU does not return per-parameter status on success; the
-        202 response carries no body. On failure the daemon surfaces
-        the upstream error as 502 problem+json with `code: upstream_unavailable`.
+        The CCU does not return per-parameter status on success, and an
+        interface process may answer ok to a configuration write and
+        still drop, clamp or coerce values it does not apply. For
+        MASTER writes the daemon therefore re-reads the stored paramset
+        after the write and answers 200 with a `ParamsetWriteResult`
+        naming every parameter whose stored value differs from the sent
+        one — an empty `readback_divergences` with no `readback_error`
+        is the only trustworthy "everything was applied as sent".
+        VALUES writes are control writes; they answer 202 with no body
+        and their effect is observed through the event stream. On
+        failure the daemon surfaces the upstream error as 502
+        problem+json with `code: upstream_unavailable`; a value the
+        daemon itself rejects (unknown parameter, type, range,
+        VALUE_LIST) is 400 `validation_error` and never reaches the CCU.
 
         `LINK` is accepted in the path only for reads. A write keyed with
         the literal `LINK` is refused with 400 `validation_error`: a LINK
@@ -588,8 +897,15 @@ paths:
           application/json:
             schema: { type: object, additionalProperties: true }
       responses:
+        "200":
+          description: >-
+            MASTER write applied; body reports the post-write read-back
+            comparison of sent vs stored values.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParamsetWriteResult" }
         "202":
-          description: Accepted (atomic write dispatched to CCU)
+          description: Accepted (VALUES control write dispatched to CCU; no read-back)
         "400":
           $ref: "#/components/responses/BadRequest"
         "403":
@@ -598,6 +914,97 @@ paths:
           $ref: "#/components/responses/Locked"
         "502":
           $ref: "#/components/responses/BadGateway"
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /devices/{addr}/paramsets/{key}/apply-targets:
+    get:
+      operationId: getParamsetApplyTargets
+      tags: [paramsets]
+      summary: Channels a MASTER paramset may be applied to
+      description: |
+        Lists every channel of the same central whose MASTER paramset
+        description is identical to this channel's — compared on the full
+        wire description the daemon holds in its paramset-description
+        store, not on channel type or device model. Two channels of the
+        same channel type routinely carry different MASTER parameter
+        sets across device types and firmware versions, and a value
+        written to a channel whose description does not carry it corrupts
+        that channel's configuration store; description identity is the
+        only safe eligibility test. Only `MASTER` is supported; any other
+        key answers 400.
+      parameters:
+        - $ref: "#/components/parameters/Address"
+        - name: key
+          in: path
+          required: true
+          schema: { type: string, enum: [MASTER] }
+      responses:
+        "200":
+          description: Eligible target channels (the source channel is not listed)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParamsetApplyTargetsResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /devices/{addr}/paramsets/{key}/apply-to:
+    post:
+      operationId: applyParamsetToChannels
+      tags: [paramsets]
+      summary: Apply MASTER values to several description-identical channels
+      description: |
+        Writes the given MASTER values to each listed target channel,
+        one channel at a time. Every target is re-checked immediately
+        before its write: its stored MASTER description must still be
+        identical to the source channel's, and the values are validated
+        against that description exactly as a single-channel write is —
+        a target that fails either check is refused with a reason and
+        the remaining targets still proceed. Each applied target
+        carries the same post-write read-back report as a single
+        MASTER write. With `dry_run` no write is performed and each
+        target reports what would happen.
+
+        Only `MASTER` is supported; any other key answers 400. The
+        caller must hold the edit lock of the SOURCE channel
+        (`channel:{addr}:MASTER`) and present its token via
+        `X-Edit-Token`. The batch acquires no target locks, but a target
+        whose own MASTER edit lock is currently held by an open edit
+        session is refused — writing under it would clobber that
+        editor's staged values. The description-identity gate plus
+        per-target validation is what makes the batch safe, and the
+        write is refused per target, never partially applied within one
+        channel.
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [operator]
+      parameters:
+        - $ref: "#/components/parameters/Address"
+        - name: key
+          in: path
+          required: true
+          schema: { type: string, enum: [MASTER] }
+        - name: X-Edit-Token
+          in: header
+          required: false
+          schema: { type: string }
+          description: Edit-lock token of the source channel (`channel:{addr}:MASTER`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ParamsetApplyRequest" }
+      responses:
+        "200":
+          description: Per-target outcome, in request order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParamsetApplyResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "423": { $ref: "#/components/responses/Locked" }
+        "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /groups:
@@ -618,8 +1025,9 @@ paths:
         groups.
 
         This is the read surface only. Creating, editing, and deleting
-        groups runs through the CCU jpages proxy (ADR 0055) and is
-        exposed separately.
+        groups is exposed separately and runs through the central's own
+        group service: the CCU jpages proxy (ADR 0055), or an
+        openccu-lite box's groups API.
       tags: [core]
       parameters:
         - name: central
@@ -644,11 +1052,14 @@ paths:
       operationId: createGroup
       summary: Create a heating group (admin)
       description: |
-        Creates a heating group through the CCU jpages proxy (ADR 0055):
-        a two-step `GET group/create` → `POST group/save` flow, then a
-        roster poll to confirm the group committed (the save response is
-        slow and unreliable). Admin-gated and audited. `?central=` selects
-        the target CCU (optional when only one is configured).
+        Creates a heating group on the target central. On a CCU that
+        runs through the jpages proxy (ADR 0055): a two-step
+        `GET group/create` → `POST group/save` flow, then a roster poll
+        to confirm the group committed (the save response is slow and
+        unreliable). On an openccu-lite system it is one call to the
+        box's groups API, and the answer is checked against the members
+        asked for. Admin-gated and audited. `?central=` selects the
+        target central (optional when only one is configured).
       tags: [core]
       security:
         - basicAuth: []
@@ -674,6 +1085,17 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "422":
+          description: |
+            The central does not offer the operation
+            (`feature_unavailable`), or the system accepted the write and
+            left out members it named (`validation`, title `Members not
+            assigned`): `detail` lists the member ids the group does not
+            hold. An openccu-lite box does this for a member its group
+            type cannot take. A refused create leaves no group behind.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
@@ -743,7 +1165,9 @@ paths:
       summary: Edit a heating group (admin)
       description: |
         Edits an existing heating group (name, members, "operate only via
-        group" flag) through the jpages save path. Admin-gated and audited.
+        group" flag) — through the jpages save path on a CCU, through the
+        box's groups API on an openccu-lite system. Admin-gated and
+        audited.
       tags: [core]
       security:
         - basicAuth: []
@@ -765,14 +1189,26 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "422":
+          description: |
+            The central does not offer the operation
+            (`feature_unavailable`), or the system accepted the write and
+            left out members it named (`validation`, title `Members not
+            assigned`): `detail` lists the member ids the group does not
+            hold. An openccu-lite box does this for a member its group
+            type cannot take. The group then holds the other members of the new list.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       operationId: deleteGroup
       summary: Delete a heating group (admin)
       description: |
-        Deletes a heating group through the jpages delete path. Admin-gated
-        and audited.
+        Deletes a heating group — through the jpages delete path on a CCU,
+        through the box's groups API on an openccu-lite system.
+        Admin-gated and audited.
       tags: [core]
       security:
         - basicAuth: []
@@ -1639,12 +2075,14 @@ paths:
         validate that the daemon manages the same CCU the user
         expects.
 
-        The CCU's network coordinates — `host`, `hostname`, `serial`,
-        `url` and the per-adapter `port` / `address` / `url` — are
-        admin-only. A viewer or operator reads them as empty strings /
-        zero, the same narrowing `GET /centrals` has always applied;
-        everything else on the entry stays visible so a status page
-        still renders.
+        The CCU's network coordinates — `host`, `hostname`, `url` and the
+        per-adapter `port` / `address` / `url` — are admin-only. A viewer
+        or operator reads them as empty strings / zero, the same narrowing
+        `GET /centrals` applies; everything else on the entry stays
+        visible so a status page still renders. `serial` identifies the
+        appliance without saying where it is reached, and is visible from
+        the operator role up (empty for a viewer): a paired client is never
+        admin, and the Home Assistant integration keys its setup on it.
 
         Centrals that have not yet completed their first connect
         round have empty `model` / `version` / `serial` / `hostname`
@@ -2691,6 +3129,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UpdateFirmwareResponse"
+        "404": { $ref: "#/components/responses/NotFound" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /devices/{addr}/config/restore:
@@ -2703,8 +3142,10 @@ paths:
         a device factory reset. The transfer runs asynchronously on the
         radio (watch the device's CONFIG_PENDING state for progress), so
         the endpoint returns 202 once the request was accepted. Supported
-        on HmIP-RF and BidCos-RF only; other interfaces (BidCos-Wired,
-        CUxD, VirtualDevices) answer 422. Consult
+        on BidCos-RF only: the HmIP process lists the method but answers
+        every call for its devices with a generic fault (measured live),
+        and BidCos-Wired, CUxD and VirtualDevices do not expose it — all
+        of them answer 422. Consult
         `DeviceSummary.config_restore_supported` before offering the
         action.
       tags: [devices]
@@ -2720,6 +3161,124 @@ paths:
             Restore dispatched; the configuration transfer continues
             asynchronously (watch CONFIG_PENDING).
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /devices/{addr}/config/repair:
+    post:
+      operationId: repairDeviceConfig
+      summary: Rebuild a device's stored MASTER configuration (admin-only)
+      description: |
+        Repairs a device whose stored channel configuration has drifted
+        from what its own paramset descriptions allow — values of the
+        wrong type, values outside their range, or entries the
+        description does not carry at all. Per channel the daemon reads
+        the live paramset description and the live stored MASTER
+        paramset, then builds a full valid MASTER write from their
+        intersection: non-writable entries are dropped, invalid values
+        are replaced by the nearest valid one (each replacement is
+        reported as a correction), and the result is written back as one
+        complete paramset for that channel. A channel whose stored
+        values already match its description is reported `clean` and not
+        written — the full rewrite costs radio time and is only the
+        recovery for a drifted store.
+
+        A stored entry whose name the description does not carry cannot
+        be repaired this way: it lives in the interface process's own
+        configuration store and no paramset write removes it. Such
+        channels are reported with status `foreign_parameters` and the
+        offending names; the full rewrite of the valid parameters is
+        still attempted, but the channel may keep rejecting writes until
+        the device is deleted and paired again.
+
+        `dry_run: true` (the default) performs every read and reports
+        what would be written without touching the device. The write
+        phase proceeds channel by channel; one failing channel does not
+        stop the rest.
+
+        This is an administrative maintenance action: it requires the
+        admin scope, intentionally takes no per-channel edit locks, and
+        bypasses the parameter-visibility gate — it rewrites the
+        channel's own stored configuration and introduces no new values
+        beyond the reported corrections. Do not run it while the
+        device's configuration is being edited.
+      tags: [devices]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      parameters:
+        - { in: path, name: addr, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfigRepairRequest" }
+      responses:
+        "200":
+          description: Per-channel repair outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConfigRepairResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /devices/{addr}/config/cache-clear:
+    post:
+      operationId: clearDeviceConfigCache
+      summary: Drop the interface process's cached device configuration (admin-only)
+      description: |
+        Asks the interface process to forget its cached configuration for
+        the device, so the next configuration read or transfer rebuilds
+        it. Implemented by the BidCos interface daemons only (BidCos-RF
+        and BidCos-Wired); every other interface answers 422. Consult
+        `DeviceSummary.config_cache_clear_supported` before offering the
+        action.
+      tags: [devices]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      parameters:
+        - { in: path, name: addr, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Cache cleared }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /devices/{addr}/rf-interface:
+    post:
+      operationId: assignRFInterface
+      summary: Assign a BidCos-RF device to an RF interface (admin-only)
+      description: |
+        Pins the device to the named BidCos-RF interface, or allows the
+        daemon to move it dynamically. The call maps 1:1 to the BidCos-RF
+        daemon's `setBidcosInterface(device_address, interface_address,
+        roaming)`: `interface_address` is the serial of one of the
+        central's RF interfaces (as listed by `listBidcosInterfaces` and
+        the matrix's `interfaces`), and `roaming: true` permits the
+        daemon to re-assign the device by signal strength on its own.
+        BidCos-RF devices only; every other interface answers 422.
+      tags: [devices]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      parameters:
+        - { in: path, name: addr, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RFInterfaceAssignRequest" }
+      responses:
+        "204": { description: Assignment written }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
@@ -2755,6 +3314,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CommunicationTestResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
@@ -2779,6 +3339,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GetDeviceTeamCandidatesResponse"
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
@@ -2808,6 +3369,7 @@ paths:
         "202":
           description: Team assignment accepted
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
@@ -2940,6 +3502,7 @@ paths:
         "202":
           description: Pairing window opened
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /devices/{addr}/channels/{no}/paramsets/{key}/determine:
@@ -3012,7 +3575,7 @@ paths:
         zip containing `device_descriptions/{model}.json` and
         `paramset_descriptions/{model}.json`. The JSON members are byte-for-byte
         identical to aiohomematic's `export_device_definition`, so the archive
-        drops straight into pydevccu / godevccu as a device fixture.
+        drops straight into godevccu as a device fixture.
       tags: [devices]
       parameters:
         - { in: path, name: addr, required: true, schema: { type: string } }
@@ -3617,7 +4180,13 @@ paths:
             `channel:{addr}:LINK:{peer}`) and present the returned token here,
             else the write is rejected 423 Locked.
       responses:
-        "202": { description: Scheduled }
+        "200":
+          description: >-
+            Write applied; body reports the post-write read-back comparison
+            of sent vs stored values (see `ParamsetWriteResult`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParamsetWriteResult" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "423": { $ref: "#/components/responses/Locked" }
@@ -4392,6 +4961,14 @@ paths:
         CCU's own restore consults.
 
 
+        An age-encrypted openccu-lite archive (`.sbk.age`, recognised by
+        its content, not its name) cannot be inspected: the daemon never
+        holds the key. It is accepted only when an openccu-lite central is
+        configured, stored unopened, and passed to that system unopened on
+        restore; the response then carries no `firmware_version` or
+        `product`. Without such a central it is refused with 422.
+
+
         Admin-gated and audited. The request body is streamed, not
         schema-validated, because a real archive is far larger than the
         validator's buffer.
@@ -4431,7 +5008,9 @@ paths:
         "422":
           description: >
             Not a CCU system backup — unreadable as a tar, or missing the
-            configuration archive or its signature.
+            configuration archive or its signature — or an encrypted
+            openccu-lite archive while no openccu-lite central is configured
+            to restore it.
         "500":
           $ref: "#/components/responses/InternalError"
         "503":
@@ -4503,7 +5082,12 @@ paths:
             structural inspection that every restore runs first: it is not a
             readable tar, or it is missing `usr_local.tar.gz` or its
             `signature`. The problem detail names which. A damaged archive
-            cannot be repaired; upload an intact one.
+            cannot be repaired; upload an intact one. An age-encrypted
+            openccu-lite archive skips that inspection only when its target
+            is an openccu-lite system, which receives it unopened; any other
+            target refuses it here. The target system may also refuse an
+            archive after checking it, for instance one only its recovery
+            key opens.
         "501":
           description: >
             No restore path is configured, so nothing was sent to the CCU.
@@ -5193,6 +5777,67 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GetDiagnosticsRSSIResponse"
+  /diagnostics/rssi/matrix:
+    get:
+      operationId: getDiagnosticsRSSIMatrix
+      summary: Pairwise BidCos-RF reception matrix (admin-only)
+      description: >
+        The BidCos-RF daemon's pairwise reception matrix, read live via the
+        XML-RPC `rssiInfo` method of every BidCos-RF interface across every
+        central. For each device the partners it exchanges frames with are
+        listed with both directions in dBm: `rx_dbm` is the strength at
+        which the device hears the partner, `tx_dbm` the strength at which
+        the partner hears the device. A direction the daemon has no
+        information for is null (the wire encodes it as 65536). Gateways
+        (the CCU's own RF interfaces) appear as partners like any device,
+        which is what makes the matrix the basis for interface assignment.
+        HmIP carries no pairwise matrix — its per-device values are on
+        `GET /diagnostics/rssi`.
+      tags: [diagnostics]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      responses:
+        "200":
+          description: Pairwise reception matrix per central
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RSSIMatrixResponse" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /diagnostics/rssi/receiver-proposal:
+    get:
+      operationId: getReceiverProposal
+      summary: Best-interface proposal per BidCos-RF device (admin-only)
+      description: >
+        A dry run over the current pairwise reception matrix: for every
+        BidCos-RF device it names the interface that hears the device
+        best, compares it against the currently assigned interface, and
+        proposes a switch only when the best interface is at least
+        `margin_db` stronger — sample-to-sample noise otherwise produces
+        flapping proposals. Nothing is written; applying a proposal is
+        one `POST /devices/{addr}/rf-interface` per confirmed device.
+      tags: [diagnostics]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      parameters:
+        - name: margin_db
+          in: query
+          required: false
+          schema: { type: integer, default: 6, minimum: 0, maximum: 30 }
+          description: Minimum dB advantage before a switch is proposed.
+      responses:
+        "200":
+          description: Per-device verdicts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReceiverProposalResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "502": { $ref: "#/components/responses/BadGateway" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /diagnostics/reliability:
     get:
       operationId: getDiagnosticsReliability
@@ -6203,7 +6848,12 @@ paths:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
         "409":
-          description: Commissioning window already open
+          description: >-
+            Commissioning window already open, or new commissioning is
+            disabled because the configured attestation chain
+            (`north.matter.attestation`) does not load. In the second case
+            the bridge keeps serving every controller already paired; the
+            log names the cause.
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
@@ -6630,10 +7280,12 @@ paths:
         Open to any authenticated identity, because the energy, backup and
         rooms/functions views need the central list — but the row is
         narrowed below the admin role. A non-admin caller receives `name`,
-        `enabled` and `interfaces`; `host` comes back empty and `serial`,
-        `port`, `json_rpc_port`, `ports`, `username`, `password_env` and both
-        TLS flags are omitted. Those fields say where the CCU lives and how
-        it is reached, which none of the lower-privileged views use.
+        `enabled` and `interfaces`; `host` comes back empty and `port`,
+        `json_rpc_port`, `ports`, `username`, `password_env` and both TLS
+        flags are omitted. Those fields say where the CCU lives and how it
+        is reached, which none of the lower-privileged views use. `serial`
+        is kept for an operator (omitted for a viewer): it identifies the
+        appliance without locating it, and paired clients key on it.
       tags: [central-admin]
       responses:
         "200":
@@ -8170,6 +8822,255 @@ components:
         Raw LINK paramset of one channel-peer pair, as the CCU returns it —
         a flat parameter-name to value map with no fixed key set, which is
         why it declares `additionalProperties` rather than named fields.
+    RSSIMatrixResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/RSSIMatrixCentral" }
+    RSSIMatrixCentral:
+      type: object
+      required: [central, interface_id, devices]
+      description: >-
+        Pairwise BidCos-RF reception matrix of one central's RF interface.
+        A central whose matrix read failed is still listed, with `error`
+        set and empty lists — one unreachable CCU must not blank the
+        others' data.
+      properties:
+        central: { type: string }
+        interface_id: { type: string }
+        error:
+          type: string
+          description: Set when this central's matrix read failed.
+        interfaces:
+          type: array
+          description: The central's RF interfaces (matrix partners that are gateways).
+          items: { $ref: "#/components/schemas/RSSIMatrixInterface" }
+        devices:
+          type: array
+          items: { $ref: "#/components/schemas/RSSIMatrixDevice" }
+    RSSIMatrixInterface:
+      type: object
+      required: [address]
+      properties:
+        address: { type: string }
+        description: { type: string }
+        connected: { type: boolean }
+        default: { type: boolean }
+        duty_cycle: { type: integer }
+    RSSIMatrixDevice:
+      type: object
+      required: [address, partners]
+      properties:
+        address: { type: string }
+        name: { type: string, description: Display name when the device is in the model. }
+        partners:
+          type: array
+          items: { $ref: "#/components/schemas/RSSIMatrixPartner" }
+    RSSIMatrixPartner:
+      type: object
+      required: [address]
+      properties:
+        address: { type: string }
+        rx_dbm:
+          type: integer
+          nullable: true
+          description: Strength at which the device hears this partner; null when unknown.
+        tx_dbm:
+          type: integer
+          nullable: true
+          description: Strength at which this partner hears the device; null when unknown.
+    ReceiverProposalResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ReceiverProposal" }
+    ReceiverProposal:
+      type: object
+      required: [address, verdict]
+      description: Best-interface verdict for one BidCos-RF device.
+      properties:
+        address: { type: string, description: Device address. }
+        name: { type: string }
+        central: { type: string }
+        current_interface: { type: string, description: Serial of the assigned RF interface. }
+        best_interface: { type: string, description: Serial of the interface that hears the device best. }
+        current_rx_dbm: { type: integer, nullable: true, description: Strength at which the assigned interface hears the device. }
+        best_rx_dbm: { type: integer, nullable: true }
+        roaming: { type: boolean, description: Dynamic assignment is enabled for the device. }
+        verdict:
+          type: string
+          enum: [switch, keep, marginal, unheard, unmeasured, roaming]
+          description: >-
+            switch — the best interface is at least margin_db stronger
+            than the assigned one; keep — the assigned interface is
+            (within the margin) the best; marginal — a stronger interface
+            exists but under the margin; unheard — no interface reports a
+            reading for the device; unmeasured — the matrix carries no
+            row for the device; roaming — dynamic assignment is on, no
+            proposal is made.
+    RFInterfaceAssignRequest:
+      type: object
+      required: [interface_address, roaming]
+      properties:
+        interface_address:
+          type: string
+          description: Serial of the RF interface to assign.
+        roaming:
+          type: boolean
+          description: Allow dynamic re-assignment by signal strength.
+    ConfigRepairRequest:
+      type: object
+      properties:
+        dry_run:
+          type: boolean
+          default: true
+        channels:
+          type: array
+          items: { type: string }
+          description: >-
+            Restrict the repair to these channel addresses; every channel
+            of the device otherwise.
+    ConfigRepairResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ConfigRepairOutcome" }
+    ConfigRepairOutcome:
+      type: object
+      required: [channel, status]
+      description: Outcome of repairing one channel's stored MASTER configuration.
+      properties:
+        channel: { type: string, description: Channel address. }
+        status:
+          type: string
+          enum: [clean, repaired, would_repair, foreign_parameters, failed]
+          description: >-
+            clean — stored values already match the description, nothing
+            written; repaired — a full valid MASTER was written;
+            would_repair — dry run, a write would correct the listed
+            values; foreign_parameters — the stored paramset carries
+            entries the description does not know (listed in `foreign`);
+            the rewrite of the valid parameters was still attempted, but
+            no paramset write can remove the foreign entries; failed — a
+            read or the write failed, see `error`.
+        corrections:
+          type: array
+          description: Values the rewrite replaces, with the stored and the corrected value.
+          items: { $ref: "#/components/schemas/ConfigRepairCorrection" }
+        foreign:
+          type: array
+          items: { type: string }
+          description: Stored parameter names the description does not carry.
+        error: { type: string }
+        result:
+          $ref: "#/components/schemas/ParamsetWriteResult"
+    ConfigRepairCorrection:
+      type: object
+      required: [parameter]
+      properties:
+        parameter: { type: string }
+        stored: {}
+        corrected: {}
+        reason: { type: string }
+    ParamsetApplyTargetsResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ParamsetApplyTarget" }
+    ParamsetApplyTarget:
+      type: object
+      required: [address]
+      description: One channel eligible for a MASTER multi-apply.
+      properties:
+        address: { type: string, description: Channel address. }
+        name: { type: string, description: Channel display name. }
+        device_address: { type: string }
+        device_name: { type: string }
+        device_model: { type: string }
+        interface_id: { type: string }
+    ParamsetApplyRequest:
+      type: object
+      required: [values, targets]
+      properties:
+        values:
+          type: object
+          additionalProperties: true
+          description: MASTER parameter values to apply, as in a single-channel PUT.
+        targets:
+          type: array
+          minItems: 1
+          items: { type: string }
+          description: Target channel addresses.
+        dry_run:
+          type: boolean
+          default: false
+    ParamsetApplyResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ParamsetApplyOutcome" }
+    ParamsetApplyOutcome:
+      type: object
+      required: [address, status]
+      description: Outcome of applying MASTER values to one target channel.
+      properties:
+        address: { type: string, description: Target channel address. }
+        status:
+          type: string
+          enum: [applied, would_apply, refused, failed]
+          description: >-
+            applied — written, see result; would_apply — dry run passed
+            every gate; refused — the description-identity gate or the
+            per-target validation rejected the target before any write;
+            failed — the write itself failed upstream.
+        reason:
+          type: string
+          description: Why the target was refused or the write failed.
+        result:
+          $ref: "#/components/schemas/ParamsetWriteResult"
+    ParamsetWriteResult:
+      type: object
+      required: [written, readback_divergences]
+      description: |
+        Post-write acknowledgement of a MASTER or LINK paramset write.
+        An interface process may answer ok to a configuration write and
+        still drop, clamp or coerce values it does not apply, so the
+        daemon re-reads the stored paramset after the write and compares
+        it against what was sent. Mirrors `hmapi.ParamsetWriteResult`.
+      properties:
+        written:
+          type: array
+          items: { type: string }
+          description: Parameter names sent to the CCU, sorted.
+        readback_divergences:
+          type: array
+          description: >-
+            Every parameter whose stored value after the write differs from
+            the sent value. Empty (with no readback_error) means every sent
+            value is stored as sent.
+          items:
+            type: object
+            required: [parameter]
+            properties:
+              parameter: { type: string }
+              sent: {}
+              stored:
+                description: null when the parameter is absent from the stored paramset.
+        readback_error:
+          type: string
+          description: >-
+            Set when the post-write read failed; the divergences are unknown
+            in that case, not empty.
     UISchema:
       type: object
       description: |
@@ -8634,6 +9535,9 @@ components:
             - https://openccu-loom.dev/errors/service_unready
             - https://openccu-loom.dev/errors/upstream_unavailable
             - https://openccu-loom.dev/errors/feature_unavailable
+            - https://openccu-loom.dev/errors/pairing_off
+            - https://openccu-loom.dev/errors/pairing_not_local
+            - https://openccu-loom.dev/errors/pairing_slow_down
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
@@ -8654,6 +9558,9 @@ components:
             - service_unready
             - upstream_unavailable
             - feature_unavailable
+            - pairing_off
+            - pairing_not_local
+            - pairing_slow_down
         feature:
           type: object
           required: [central, key, reason]
@@ -8682,11 +9589,151 @@ components:
               reason: { type: string }
               min: {}
               max: {}
+    WarningSilenceRequest:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: integer
+          enum: [1, 7, 90]
+          description: How long the warning stays muted for the calling user.
+
+    PairingRequestsChangedPayload:
+      type: object
+      required: [pending]
+      description: WS broadcast `pairing.requests_changed` — only the count; details stay behind the admin-gated list.
+      properties:
+        pending: { type: integer }
+
+    PairingAsk:
+      type: object
+      required: [app, role, commit]
+      properties:
+        app:
+          type: string
+          description: Short app id (letters, digits, `. _ -`, ≤48 chars).
+        app_version: { type: string }
+        instance:
+          type: string
+          description: Which installation of the app, e.g. a hostname.
+        name:
+          type: string
+          description: Human-readable name the admin card shows; defaults to app (+ instance).
+        role:
+          type: string
+          enum: [viewer, operator]
+          description: The role the token shall carry. `admin` is never pairable.
+        purpose:
+          type: string
+          description: One sentence the administrator reads next to the request.
+        commit:
+          type: string
+          description: Hex SHA-256 of the client's random nonce (≥16 bytes), revealed with the first poll.
+    PairingAnswer:
+      type: object
+      required: [id, poll, nonce, expires_in, interval, fingerprint]
+      properties:
+        id: { type: string }
+        poll:
+          type: string
+          description: The request's own secret; sent as `Authorization Pairing <secret>` on poll and withdraw, never in a URL.
+        nonce:
+          type: string
+          description: Hex; the server's half of the code derivation.
+        expires_in: { type: integer }
+        interval:
+          type: integer
+          description: Minimum seconds between plain polls.
+        fingerprint:
+          type: string
+          description: Hex SHA-256 of the certificate DER the daemon serves; empty over plain HTTP. A client that saw a different certificate must abort — the code would authenticate the interceptor.
+    PairingResult:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [pending, approved, rejected, expired]
+        token:
+          type: string
+          description: The minted API token; present exactly once, on the poll that first sees the approval.
+        subject: { type: string }
+        role: { type: string }
+    PairingView:
+      type: object
+      required: [id, app, name, address, role, code, created, expires]
+      properties:
+        id: { type: string }
+        app: { type: string }
+        app_version: { type: string }
+        instance: { type: string }
+        name: { type: string }
+        address: { type: string }
+        role: { type: string }
+        purpose: { type: string }
+        code:
+          type: string
+          description: The six digits the asking client displays; the administrator compares and types them.
+        fingerprint: { type: string }
+        created: { type: string, format: date-time }
+        expires: { type: string, format: date-time }
+        look_alike:
+          type: boolean
+          description: Another pending request shares this one's address or app+instance — compare carefully.
+    PairingRequestList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PairingView" }
+    PairingApproveRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: The six digits read on the asking client.
+
+    Warning:
+      type: object
+      required: [id, severity, message_key, silenced]
+      properties:
+        id:
+          type: string
+          description: Stable id, `<source>:<key>` (e.g. `health:mqtt`, `incident:xmlrpc`, `servicemsg:ccu1`).
+        severity:
+          type: string
+          enum: [warning, error]
+        central:
+          type: string
+          description: Set when the warning belongs to one central.
+        message_key:
+          type: string
+          description: UI catalogue key that renders this row.
+        args:
+          type: object
+          additionalProperties: { type: string }
+          description: Interpolation values for `message_key`.
+        silenced:
+          type: boolean
+          description: Whether the CALLING user silenced this warning.
+        silenced_until:
+          type: string
+          format: date-time
+    WarningList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Warning" }
+
     Info:
       type: object
       required:
-        [version, commit, build_date, addon_build, uptime, started_at, config_ui_url,
-         api_version, schema_digest, capabilities]
+        [version, commit, build_date, addon_build, deployment, uptime, started_at,
+         config_ui_url, api_version, schema_digest, capabilities]
       description: |
         Daemon build + runtime info plus a wire-contract version and a
         capability list. External clients should switch on
@@ -8703,6 +9750,9 @@ components:
             True when this binary was built as the CCU/OpenCCU
             add-on (it then runs on the CCU itself). False for the
             standalone binary, Docker image, and HA add-on builds.
+            It does not tell a classic CCU from an openccu-lite box;
+            read `deployment.kind` for that.
+        deployment: { $ref: "#/components/schemas/Deployment" }
         uptime: { type: string }
         started_at: { type: string, format: date-time }
         config_ui_url:
@@ -8758,12 +9808,28 @@ components:
             system: `system_type: openccu-lite`).
             Conditional entries surface only when configured:
             `mqtt.discovery.v1`, `mqtt.raw.v1`, `matter.bridge.v1`,
-            `auth.oidc.v1`, `auth.ccu.v1`, `webhook.inbound.v1`,
+            `auth.oidc.v1`, `auth.ccu.v1`, `auth.basic.v1`,
+            `auth.bearer.v1`, `auth.pairing.v1`, `auth.occulite_token.v1`,
+            `auth.occulite_sso.v1`, `auth.ha_ingress.v1`,
+            `webhook.inbound.v1`,
             `diagrams.v1`, `admin.persistence.v1`, `history.v1`,
             `mcp.v1`, `mcp.write.v1`, `system.restart.supervised.v1`,
             `addon_self_update`, `alarm.v1` (the `/alarm` surface is
             mounted — absent, the alarm subsystem is off and every
             `/alarm` route answers 404).
+
+            The `auth.*` tokens are the login paths this daemon accepts:
+            `auth.basic.v1` (HTTP Basic with a daemon user),
+            `auth.bearer.v1` (a daemon API token as `Authorization:
+            Bearer`), `auth.pairing.v1` (`POST /pairing` mints such a
+            token after an administrator confirms), `auth.oidc.v1`,
+            `auth.ccu.v1` (a CCU account, delegated),
+            `auth.occulite_token.v1` (an openccu-lite box API token that
+            the box's gate accepted in front of `deployment.ingress_path`),
+            `auth.occulite_sso.v1` (a box-shell session through the same
+            gate) and `auth.ha_ingress.v1` (Home Assistant Ingress
+            requests from the Supervisor). A client offers a person only
+            the paths listed here.
 
             `mcp.write.v1` implies `mcp.v1`; `addon_self_update` predates
             the `<area>.<feature>.v<n>` convention and keeps its spelling
@@ -8796,9 +9862,51 @@ components:
               - mqtt.raw.v1
               - matter.bridge.v1
               - auth.oidc.v1
+              - auth.bearer.v1
+              - auth.pairing.v1
+              - auth.occulite_token.v1
               - webhook.inbound.v1
               - diagrams.v1
               - admin.persistence.v1
+    DeploymentKind:
+      type: string
+      enum: [lite-addon, ccu-addon, ha-addon, standalone]
+      description: |
+        `lite-addon`: the add-on on an openccu-lite box, fronted by
+        the box's web server and its gate. `ccu-addon`: the add-on on
+        a classic CCU / OpenCCU. `ha-addon`: the Home Assistant
+        add-on. `standalone`: everything else (a container, a
+        service, a plain process).
+
+        A named schema on purpose: generated clients number anonymous
+        enums by their position in this document, so an inline enum
+        here would rename every `kind` enum that follows it.
+    Deployment:
+      type: object
+      required: [kind]
+      description: |
+        Where this daemon runs, as declared by its packaging and
+        resolved once at start (ADR 0081). It is a property of the
+        daemon process, not of the systems it talks to: a `standalone`
+        daemon can hold an openccu-lite central, and a `lite-addon`
+        daemon can hold a remote classic CCU as a further central. What
+        a central offers is in `features` on `GET /system/ccu`.
+
+        The same value is advertised as `deploy` (and `ingress_path` as
+        `ingress`) in the daemon's mDNS TXT record, for a client that
+        cannot read `/info` before it has logged in. Where both are
+        readable, this object is the authority.
+      properties:
+        kind: { $ref: "#/components/schemas/DeploymentKind" }
+        ingress_path:
+          type: string
+          description: |
+            Path under which the hosting system's own web server serves
+            this daemon, with a trailing slash. Present only when there
+            is one (`lite-addon`). A client reaches the API at
+            `https://<host><ingress_path>api/v1` and must present a
+            credential the hosting system's gate accepts.
+          example: /addons/loom/
     GroupCentralEntry:
       type: object
       required: [central, groups]
@@ -8814,10 +9922,11 @@ components:
       type: object
       required: [id, name, forbid_single_operation, type_id, members]
       description: |
-        One Homematic heating group (HmIP / BidCos), as read from the
-        CCU's groups.gson via `CCU.getHeatingGroupList`. Read-only — the
-        create / edit / delete surface runs through the CCU jpages proxy
-        (see ADR 0055) and is exposed separately.
+        One Homematic heating group (HmIP / BidCos): on a CCU as read
+        from its groups.gson via `CCU.getHeatingGroupList`, on an
+        openccu-lite system as the box's groups API answers it. This
+        schema is the read shape; the create / edit / delete surface is
+        exposed separately.
       properties:
         id:
           type: integer
@@ -9016,7 +10125,16 @@ components:
             per daemon.
         host: { type: string }
         available: { type: boolean }
-        model: { type: string }
+        model:
+          type: string
+          description: |
+            The system's product family, not a hardware model: `CCU` or
+            `OpenCCU` for a `system_type: ccu` central — the two values
+            the daemon reduces the firmware's product name to — and
+            `openccu-lite` for an
+            openccu-lite central. Empty until the daemon has read it from
+            the system. A client treats an unknown or empty value as
+            unknown, not as one of the families.
         version: { type: string }
         hostname: { type: string }
         serial: { type: string }
@@ -9378,9 +10496,18 @@ components:
         config_restore_supported:
           type: boolean
           description: |
-            True when the device's interface exposes `restoreConfigToDevice`
-            (HmIP-RF, BidCos-RF). The SPA gates the "restore config" action on
-            it. False for BidCos-Wired, CUxD and VirtualDevices.
+            True when the device's interface daemon implements
+            `restoreConfigToDevice` (BidCos-RF only — the HmIP process
+            lists the method but answers every call for its devices with a
+            generic fault, measured live). The SPA gates the "restore
+            config" action on it.
+        config_cache_clear_supported:
+          type: boolean
+          description: |
+            True when the device's interface daemon implements
+            `clearConfigCache` (the BidCos daemons: BidCos-RF and
+            BidCos-Wired). The SPA gates the "clear config cache" action on
+            it. False for HmIP-*, CUxD and VirtualDevices.
         communication_test_supported:
           type: boolean
           description: |
@@ -9427,7 +10554,22 @@ components:
         never 0 or false, which would read as a real measurement.
       properties:
         IsReachable: { type: boolean }
-        LastUpdated: { type: string, format: date-time }
+        LastUpdated:
+          type: string
+          format: date-time
+          description: |
+            When any VALUES data point of the device last *changed* value.
+            Zero time (`0001-01-01T00:00:00Z`) when nothing has been observed.
+        LastRefreshed:
+          type: string
+          format: date-time
+          description: |
+            When any VALUES data point of the device was last *observed*
+            from the CCU — a pushed event or an active read (boot seed,
+            periodic sweep, operator refresh), whether or not the value
+            changed. The SPA shows it as the device's "last refreshed"
+            time; the `device.refreshed` WebSocket broadcast announces
+            that it moved. Zero time when nothing has been observed.
         BatteryLevel: { type: ["integer", "null"] }
         LowBattery: { type: ["boolean", "null"] }
         SignalStrength: { type: ["integer", "null"] }
@@ -10740,17 +11882,28 @@ components:
         role: { type: string, enum: [admin, operator, viewer] }
         scheme:
           type: string
-          enum: [basic, bearer, session, oidc, ingress]
+          enum: [basic, bearer, session, oidc, ingress, occulite, occulite-token]
           description: >-
             How the request authenticated. `ingress` is the Home
-            Assistant Ingress passthrough the add-on deployment uses.
+            Assistant Ingress passthrough the add-on deployment uses;
+            `occulite` is the box-shell single sign-on over the
+            openccu-lite ingress (ADR 0079) — the gate's session,
+            live-verified against the box. The SPA reads it to skip
+            its own login and hide the logout action. `occulite-token`
+            is a box API token the gate accepted for this add-on as
+            `Authorization: Bearer` (ADR 0080), live-verified against
+            the box: the add-on's own gate scope `addon:<id>` grants
+            operator, Full access admin. Its subject is
+            `occulite-token:<token name>`.
         expires_at:
           type: string
           format: date-time
           description: >-
             The instant the credential behind this identity stops being
             accepted, in UTC. Absent means the credential has no
-            server-side expiry — a `basic`, `ingress` or unbounded
+            server-side expiry — a `basic`, `ingress`, `occulite` or
+            `occulite-token` (the box owns the session's or token's
+            lifetime) or unbounded
             `bearer` identity. It is the deadline a long-lived consumer
             needs: a WebSocket captures its identity at the upgrade and
             is closed when this instant passes, so a client that reads
@@ -12435,8 +13588,10 @@ components:
           type: string
           enum: [online, offline]
           description: >-
-            The same two words the MQTT bridge retains on
-            `<base>/bridge/status`, so a client bridging both planes needs no
+            The same two words the MQTT plane's "Daemon connection" entity
+            reports for the instance's `<base>/connected` level (`offline` at
+            0, `online` from 1; the topic itself carries the mqtt-smarthome
+            level 0/1/2), so a client bridging both planes needs no
             translation.
         reason:
           type: string
@@ -12546,6 +13701,28 @@ components:
         interface_id: { type: string }
         device_address: { type: string }
         available: { type: boolean }
+
+    DeviceRefreshedPayload:
+      type: object
+      description: |
+        Payload of a `device.refreshed` broadcast. Topic pattern
+        `device.{address}.lifecycle` — same topic as `device.created`;
+        subscribers route by the envelope `type` field. Fires when a
+        VALUES data point of the device recorded a fresh observation from
+        the CCU — a pushed event or an active read, whether or not the
+        value changed. The daemon throttles it to one frame per device
+        per two-second window, so `refreshed_at` may trail the device's
+        exact latest observation by up to that window; the REST device
+        summary's `availability.LastRefreshed` carries the exact value.
+      required: [central, interface_id, device_address, refreshed_at]
+      properties:
+        central: { type: string }
+        interface_id: { type: string }
+        device_address: { type: string }
+        refreshed_at:
+          type: string
+          format: date-time
+          description: Observation time that opened the throttle window, RFC 3339 UTC.
 
     DeviceMetadataChangedPayload:
       type: object
@@ -12766,6 +13943,10 @@ components:
             Runtime capability the surface additionally needs. A
             `feature:<key>` gate is open while at least one central
             offers that feature (see `features` on `GET /system/ccu`).
+            `feature:hub.inbox` is no longer emitted: the new-devices
+            view (`nav.inbox`) lists the daemon's own onboarding hold,
+            which exists on every system, and carries no gate. The value
+            stays in the vocabulary for clients of older daemons.
           enum:
             - matter
             - history
@@ -13175,7 +14356,8 @@ components:
           description: >-
             CCU hostname or IP address. Present but empty on the two read
             operations when the caller is below the admin role; the sibling
-            connection fields are omitted outright there.
+            connection fields are omitted outright there (`serial` only below
+            the operator role).
         serial:
           type: string
           description: >-
@@ -13201,10 +14383,11 @@ components:
           description: >-
             Kind of system behind the central. Empty means `ccu`, so a row
             written before the field existed keeps its meaning. An
-            `openccu-lite` central needs `api_token_plain` or `api_token_env`
-            and must not carry username, password or port overrides; a `ccu`
-            central must not carry an API token or a fingerprint. A write that
-            breaks a rule is refused with 400 naming the field.
+            `openccu-lite` central needs `api_token_plain`, `api_token_env`
+            or `api_token_file` and must not carry username, password or port
+            overrides; a `ccu` central must not carry an API token or a
+            fingerprint. A write that breaks a rule is refused with 400
+            naming the field.
         api_token_env:
           type: string
           description: >-
@@ -13218,6 +14401,15 @@ components:
             clear: reads carry the mask `***`, and a write that sends the mask
             back (or omits the key, or sends null) keeps the stored token; an
             explicit empty string clears it.
+        api_token_file:
+          type: string
+          description: >-
+            Path of a file holding the openccu-lite API token instead of
+            storing it: the token is read per request, so a rotated file —
+            occulited mints an add-on's token anew at every start, a
+            container may remount a secret — takes effect without a restart.
+            A path, not a secret, so it is returned in the clear. Mutually
+            exclusive with a stored token.
         tls_fingerprint:
           type: string
           description: >-
@@ -13311,7 +14503,7 @@ components:
           description: "Surface per-device firmware-update entities (default true — a deliberate divergence from the reference stack's false default)."
         delay_new_device_creation:
           type: boolean
-          description: "Defer ingest of a newly-paired device to the inbox/manual-accept flow (default false)."
+          description: "Hold a newly-paired device until an operator accepts it from the inbox (it is then built) and releases it (it then reaches MQTT, Matter and webhooks). Devices already known are never held. false builds and publishes a new device immediately (default true)."
 
     # ---- Schedules / week profiles ----
     ScheduleDeviceSummary:

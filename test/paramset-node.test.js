@@ -32,6 +32,13 @@ function startBackend() {
         const m = req.url.match(/^\/api\/v1\/devices\/([^/]+)\/paramsets\/([^/]+)$/);
         if (m) {
           const addr = decodeURIComponent(m[1]);
+          if (addr === "STRICT" && req.method === "PUT") {
+            // API 13: a configuration write naming a parameter the channel's
+            // description does not know is refused before it reaches the CCU.
+            res.writeHead(400, { "Content-Type": "application/problem+json" });
+            res.end(JSON.stringify({ title: "validation_error", status: 400 }));
+            return;
+          }
           if (addr === "BROKEN") {
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ title: "Internal Server Error" }));
@@ -43,8 +50,10 @@ function startBackend() {
             return;
           }
           if (req.method === "PUT") {
+            // API 13: a MASTER/LINK write answers 200 with the read-back
+            // report (ParamsetWriteResult) instead of a bodyless 202.
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ status: "applied" }));
+            res.end(JSON.stringify({ written: Object.keys(body || {}).sort(), readback_divergences: [] }));
             return;
           }
         }
@@ -129,7 +138,8 @@ describe("openccu-loom-paramset", function () {
       const n2 = helper.getNode("n2");
       n2.on("input", (msg) => {
         try {
-          assert.deepStrictEqual(msg.payload, { status: "applied" });
+          assert.deepStrictEqual(msg.payload, { written: ["LOWBAT_LIMIT"], readback_divergences: [] });
+          assert.strictEqual(msg.statusCode, 200);
           assert.strictEqual(requests.length, 1);
           assert.strictEqual(requests[0].method, "PUT");
           assert.strictEqual(
@@ -148,6 +158,29 @@ describe("openccu-loom-paramset", function () {
         address: "000C9709AEF157:2",
         payload: { LOWBAT_LIMIT: 2.2 },
       });
+    });
+  });
+
+  it("errors and emits nothing when the daemon refuses a strict configuration write (400)", function (done) {
+    const port = backend.address().port;
+    helper.load([serverNode, paramsetNode], flow(port), function () {
+      const n1 = helper.getNode("n1");
+      const n2 = helper.getNode("n2");
+      let emitted = false;
+      n2.on("input", () => {
+        emitted = true;
+      });
+      n1.error = function (err) {
+        try {
+          const text = err && err.message ? err.message : String(err);
+          assert.ok(/400/.test(text), `unexpected error: ${text}`);
+          assert.strictEqual(emitted, false, "must not emit a message");
+          done();
+        } catch (e) {
+          done(e);
+        }
+      };
+      n1.receive({ mode: "write", key: "MASTER", address: "STRICT", payload: { NO_SUCH_PARAMETER: 1 } });
     });
   });
 
