@@ -3,6 +3,33 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.0] - 2026-10-17
+
+Tracks the daemon's API 13.9.1 (openccu-loom 0.92.0), up from 12.0.0.
+
+### Changed
+
+- **`SUPPORTED_API_MAJOR` raised 12 -> 13 and the vendored spec refreshed to
+  the v0.92.0 tag.** Every REST path and WebSocket command this package uses
+  is still in the spec (`test/api-surface.test.js`). A daemon from 0.83.0 on
+  reports API 13, which the server node did not accept as supported.
+
+- **`paramset` writes to MASTER or LINK return the daemon's write report.**
+  Since API 13.0.0 such a write answers `200` with
+  `{written, readback_divergences, readback_error?}` — the parameters sent
+  and any that read back differently — instead of a bodyless `202`, and the
+  node passes it on as `msg.payload` (`msg.statusCode` is `200`). A VALUES
+  write still answers `202`.
+
+- **Configuration writes are strict.** Since API 13.0.0 the daemon refuses a
+  paramset write that names a parameter the channel does not know, or whose
+  description it cannot fetch, before it reaches the CCU (`400` / `502`); the
+  node reports that as an error and emits nothing.
+
+The other breaking change in API 13 — `PUT /devices/{addr}/link-ps/{peer}`
+and the WebSocket `links.put_paramset` result — reaches no node: the `links`
+node lists and tests links but does not write link paramsets.
+
 ## [0.7.0] - 2026-09-28
 
 Tracks the daemon's API 12.0.0 (openccu-loom 0.79.0), up from 10.1.0.
