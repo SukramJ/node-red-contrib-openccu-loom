@@ -47,11 +47,20 @@ jobs:
           fi
           echo "package.json version ${PKG_VERSION} matches ${TAG_NAME}"
 
+      # Releases open with the one-line sponsoring note in
+      # .github/SPONSORING.md (as in homematicip_local); the generated
+      # notes follow below it.
+      - name: Prepend sponsoring note
+        run: |
+          set -euo pipefail
+          cp .github/SPONSORING.md RELEASE_NOTES.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3
         with:
           tag_name: ${{ env.TAG_NAME }}
           name: ${{ env.TAG_NAME }}
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
           draft: false
           prerelease: false
