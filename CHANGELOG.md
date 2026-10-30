@@ -3,6 +3,52 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] - 2026-10-30
+
+Tracks the daemon's API 15.1.0 (openccu-loom 0.95.0), up from 13.9.1.
+
+### Changed
+
+- **`SUPPORTED_API_MAJOR` raised 13 -> 15 and the vendored spec refreshed to
+  the v0.95.0 tag.** A daemon from 0.94.0 on reports API 14 or 15, which the
+  server node did not accept as supported. API 15.0.0 changes no JSON (the
+  WebSocket envelope's `kind` became a named schema); the break that reaches
+  this package is API 14.0.0's.
+
+- **Breaking: the `matter` node talks to `/node/…`.** Since API 14.0.0 the
+  daemon serves the Matter bridge's routes from go-fabric-ui under `/node/…`,
+  and every `/matter/…` route is gone. Most actions keep their name and
+  behaviour:
+  - `status`, `compatibility`, `endpoints`, `mdns`, `sessions`, `events` and
+    `fabrics` read the same data from the new paths.
+  - `fabric-delete` still takes the fabric index in `msg.fabricId`, and
+    `factory-reset` still supplies the confirmation token itself.
+  - `force-sync` rebuilds the endpoints through
+    `POST /node/maintenance/reassemble`.
+  - `setup-payload` and `commissioning-window` both read the pairing codes
+    (`GET /node/pairing`): of the open window, else the configured ones,
+    with `window_open` telling which.
+  - `commissioning-open` and `share` open the one commissioning window the
+    daemon has (`POST /node/pairing/window`) and answer with its codes.
+    Without a duration the node now sends an empty object, because the
+    daemon refuses an empty body.
+
+- **Breaking: `exposure`, `exposure-set` and `exposure-preview` replace
+  `exposable`, `exposable-set` and `exposable-bulk`.** The selection is now
+  a list of items with opaque keys (`GET /node/exposure`), and a write is a
+  batch of `{key, enabled, name?}` changes that also rebuilds the endpoints.
+  `exposure-set` takes one change, an array of them or `{items: [...]}`;
+  `exposure-preview` takes the same body and writes nothing. The old
+  allowlist rows (`central_name`, `device_address`, …) have no translation
+  to keys, so a flow using them has to read the keys from `exposure`. The
+  old action names now fail with `unknown action`.
+
+- **The Matter broadcasts are `node.*`.** The daemon no longer sends
+  `matter.*` WebSocket events; an `events` node filtering on `matter.*`
+  receives nothing and needs `node.*` (`node.fabric_added`,
+  `node.fabric_removed`, `node.window_opened`, `node.window_closed`,
+  `node.endpoints_changed`, `node.exposure_changed`).
+
 ## [0.8.0] - 2026-10-17
 
 Tracks the daemon's API 13.9.1 (openccu-loom 0.92.0), up from 12.0.0.

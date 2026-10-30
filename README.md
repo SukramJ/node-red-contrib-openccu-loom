@@ -75,7 +75,7 @@ Subscribes to the bidirectional WebSocket event stream. Every received frame
 becomes `msg.payload`; `msg.topic`, `msg.eventType`, `msg.kind`
 (`initial|change|refresh`) and `msg.seq` are populated from the envelope.
 
-* Topic filter: comma-separated patterns, e.g. `device.*,hub.*,central.*,matter.*`.
+* Topic filter: comma-separated patterns, e.g. `device.*,hub.*,central.*,node.*`.
   API 7 added the broadcast families `security.*` (state, zone, class and
   fault changes plus notifications), `schedules.changed`,
   `addon_update.state_changed`, `daemon_status.changed`,
@@ -102,8 +102,7 @@ Dispatches a WebSocket command (`assets/wsapi.json`, currently 181 commands) ove
 the shared connection of the configured server. The frame is
 `{op:"call", id:<auto>, command, args}` and the matching `result` is correlated
 by id. Common targets: `ccu.get_signal_quality`, `paramset.form_schema`,
-`config.session.open/save/discard/undo/redo`, `backup.trigger`,
-`matter.commissioning_window_opened`.
+`config.session.open/save/discard/undo/redo`, `backup.trigger`.
 
 ### `alarm` (WebSocket RPC)
 
@@ -318,17 +317,21 @@ Classes: `smoke`, `water`, `gas`, `co`, `tamper`, `battery`, `technical`,
 
 ### `matter`
 
-The Matter bridge surface (`/matter/…`).
+The Matter bridge surface (`/node/…` since daemon API 14). Every write and
+the pairing codes need an admin.
 
 * **Status and topology** — `status`, `compatibility`, `endpoints`, `mdns`,
-  `sessions`, `events`, and `force-sync` to re-assemble the exposed topology.
-* **Fabrics** — `fabrics`, `fabric-delete` (`msg.fabricId`) and
-  `factory-reset`, which removes every fabric (destructive; the node supplies
-  the daemon's required confirmation token itself).
-* **Allowlist** — `exposable`, `exposable-set` (one row) and `exposable-bulk`
-  (a bare array in `msg.payload`, or `{items: [...]}`).
-* **Commissioning** — `setup-payload` (QR + manual code),
-  `commissioning-window` (state), `commissioning-open`, `share` (a second
+  `sessions`, `events`, and `force-sync` to rebuild the endpoints from the
+  current selection.
+* **Fabrics** — `fabrics`, `fabric-delete` (`msg.fabricId`, the fabric index)
+  and `factory-reset`, which removes every fabric (destructive; the node
+  supplies the daemon's required confirmation token itself).
+* **Exposure** — `exposure` (every item with its `key`), `exposure-set`
+  (applies `{key, enabled, name?}` changes and rebuilds the endpoints) and
+  `exposure-preview` (the same body, nothing written). `msg.payload` is one
+  change, an array of them, or `{items: [...]}`.
+* **Commissioning** — `setup-payload` / `commissioning-window` (the pairing
+  codes), `commissioning-open`, `share` (the same window, for another
   ecosystem) and `commissioning-close`. Both open verbs take an optional
   `msg.durationSeconds` (180–900, default 900).
 

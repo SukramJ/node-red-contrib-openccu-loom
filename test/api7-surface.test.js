@@ -396,7 +396,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "status" },
     {},
-    { method: "GET", url: "/matter/status", body: null },
+    { method: "GET", url: "/node/status", body: null },
   ],
   [
     "matter compatibility reads the per-ecosystem verdict",
@@ -404,7 +404,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "compatibility" },
     {},
-    { method: "GET", url: "/matter/compatibility", body: null },
+    { method: "GET", url: "/node/compatibility", body: null },
   ],
   [
     "matter endpoints reads the assembled topology",
@@ -412,7 +412,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "endpoints" },
     {},
-    { method: "GET", url: "/matter/endpoints", body: null },
+    { method: "GET", url: "/node/endpoints", body: null },
   ],
   [
     "matter mdns reads what the bridge advertises",
@@ -420,7 +420,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "mdns" },
     {},
-    { method: "GET", url: "/matter/mdns", body: null },
+    { method: "GET", url: "/node/mdns", body: null },
   ],
   [
     "matter sessions reads the open sessions",
@@ -428,7 +428,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "sessions" },
     {},
-    { method: "GET", url: "/matter/sessions", body: null },
+    { method: "GET", url: "/node/sessions", body: null },
   ],
   [
     "matter events reads the pairing/session ledger",
@@ -436,7 +436,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "events" },
     {},
-    { method: "GET", url: "/matter/events", body: null },
+    { method: "GET", url: "/node/events", body: null },
   ],
   [
     "matter setup-payload reads the pairing code",
@@ -444,17 +444,17 @@ const CASES = [
     "openccu-loom-matter",
     { action: "setup-payload" },
     {},
-    { method: "GET", url: "/matter/setup-payload", body: null },
+    { method: "GET", url: "/node/pairing", body: null },
   ],
 
   // --- matter: topology and fabrics ------------------------------------
   [
-    "matter force-sync re-assembles the topology",
+    "matter force-sync rebuilds the endpoints",
     matterNode,
     "openccu-loom-matter",
     { action: "force-sync" },
     {},
-    { method: "POST", url: "/matter/force-sync", body: null },
+    { method: "POST", url: "/node/maintenance/reassemble", body: null },
   ],
   [
     "matter fabric-delete unpairs one fabric",
@@ -462,7 +462,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "fabric-delete" },
     { fabricId: "3" },
-    { method: "DELETE", url: "/matter/fabrics/3", body: null },
+    { method: "DELETE", url: "/node/fabrics/3", body: null },
   ],
   [
     "matter factory-reset supplies the confirmation token itself",
@@ -470,71 +470,59 @@ const CASES = [
     "openccu-loom-matter",
     { action: "factory-reset" },
     {},
-    { method: "POST", url: "/matter/factory-reset", body: { confirm: "remove-all-fabrics" } },
+    { method: "POST", url: "/node/maintenance/factory-reset", body: { confirm: "remove-all-fabrics" } },
   ],
 
-  // --- matter: allowlist -----------------------------------------------
+  // --- matter: exposure ------------------------------------------------
   [
-    "matter exposable-set updates one allowlist row",
+    "matter exposure reads every item",
     matterNode,
     "openccu-loom-matter",
-    { action: "exposable-set" },
-    {
-      payload: {
-        central_name: "Home",
-        device_address: "ABC0123456",
-        channel_no: 1,
-        dp_kind: "generic",
-        dp_key: "STATE",
-        enabled: true,
-      },
-    },
-    {
-      method: "PUT",
-      url: "/matter/exposable",
-      body: {
-        central_name: "Home",
-        device_address: "ABC0123456",
-        channel_no: 1,
-        dp_kind: "generic",
-        dp_key: "STATE",
-        enabled: true,
-      },
-    },
+    { action: "exposure" },
+    {},
+    { method: "GET", url: "/node/exposure", body: null },
   ],
   [
-    "matter exposable-bulk wraps a bare array in items",
+    "matter exposure-set wraps a single item in items",
     matterNode,
     "openccu-loom-matter",
-    { action: "exposable-bulk" },
-    { payload: [{ dp_key: "STATE", enabled: true }] },
-    { method: "POST", url: "/matter/exposable/bulk", body: { items: [{ dp_key: "STATE", enabled: true }] } },
+    { action: "exposure-set" },
+    { payload: { key: "k1", enabled: true } },
+    { method: "PUT", url: "/node/exposure", body: { items: [{ key: "k1", enabled: true }] } },
   ],
   [
-    "matter exposable-bulk passes an already-wrapped payload through",
+    "matter exposure-set wraps a bare array in items",
     matterNode,
     "openccu-loom-matter",
-    { action: "exposable-bulk" },
-    { payload: { items: [{ dp_key: "LEVEL", enabled: false }] } },
-    { method: "POST", url: "/matter/exposable/bulk", body: { items: [{ dp_key: "LEVEL", enabled: false }] } },
+    { action: "exposure-set" },
+    { payload: [{ key: "k1", enabled: true, name: "Lamp" }] },
+    { method: "PUT", url: "/node/exposure", body: { items: [{ key: "k1", enabled: true, name: "Lamp" }] } },
+  ],
+  [
+    "matter exposure-preview passes an already-wrapped payload through",
+    matterNode,
+    "openccu-loom-matter",
+    { action: "exposure-preview" },
+    { payload: { items: [{ key: "k2", enabled: false }] } },
+    { method: "POST", url: "/node/exposure/preview", body: { items: [{ key: "k2", enabled: false }] } },
   ],
 
   // --- matter: commissioning -------------------------------------------
   [
-    "matter commissioning-window reads the window state",
+    "matter commissioning-window reads the pairing codes",
     matterNode,
     "openccu-loom-matter",
     { action: "commissioning-window" },
     {},
-    { method: "GET", url: "/matter/commissioning/window", body: null },
+    { method: "GET", url: "/node/pairing", body: null },
   ],
   [
-    "matter commissioning-open leaves the duration to the daemon",
+    "matter commissioning-open sends an empty body and leaves the duration to the daemon",
     matterNode,
     "openccu-loom-matter",
     { action: "commissioning-open" },
     {},
-    { method: "POST", url: "/matter/commissioning/window", body: null },
+    { method: "POST", url: "/node/pairing/window", body: {} },
   ],
   [
     "matter commissioning-open forwards a duration",
@@ -542,7 +530,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "commissioning-open" },
     { durationSeconds: 300 },
-    { method: "POST", url: "/matter/commissioning/window", body: { duration_seconds: 300 } },
+    { method: "POST", url: "/node/pairing/window", body: { duration_seconds: 300 } },
   ],
   [
     "matter commissioning-close closes the window early",
@@ -550,7 +538,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "commissioning-close" },
     {},
-    { method: "POST", url: "/matter/commissioning/window/close", body: null },
+    { method: "POST", url: "/node/pairing/window/close", body: null },
   ],
   [
     "matter share opens a window for a second ecosystem",
@@ -558,7 +546,7 @@ const CASES = [
     "openccu-loom-matter",
     { action: "share", durationSeconds: 600 },
     {},
-    { method: "POST", url: "/matter/share", body: { duration_seconds: 600 } },
+    { method: "POST", url: "/node/pairing/window", body: { duration_seconds: 600 } },
   ],
 
   // --- areas ------------------------------------------------------------
@@ -845,20 +833,28 @@ describe("API 7.x nodes: argument validation", function () {
       /msg\.fabricId missing/,
     ],
     [
-      "matter exposable-set without a payload",
+      "matter exposure-set without a payload",
+      matterNode,
+      "openccu-loom-matter",
+      { action: "exposure-set" },
+      {},
+      /exposure-set needs msg\.payload/,
+    ],
+    [
+      "matter exposure-preview with a pre-API-14 allowlist row (no key)",
+      matterNode,
+      "openccu-loom-matter",
+      { action: "exposure-preview" },
+      { payload: { central_name: "Home", device_address: "ABC0123456", channel_no: 1, dp_key: "STATE", enabled: true } },
+      /exposure-preview needs msg\.payload/,
+    ],
+    [
+      "matter exposable-set is gone since API 14",
       matterNode,
       "openccu-loom-matter",
       { action: "exposable-set" },
-      {},
-      /needs an object msg\.payload/,
-    ],
-    [
-      "matter exposable-bulk with neither an array nor items",
-      matterNode,
-      "openccu-loom-matter",
-      { action: "exposable-bulk" },
-      { payload: { dp_key: "STATE" } },
-      /needs an array msg\.payload/,
+      { payload: { key: "k1", enabled: true } },
+      /unknown action: exposable-set/,
     ],
     [
       "areas create without a name",

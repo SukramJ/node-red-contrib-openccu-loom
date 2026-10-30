@@ -45,10 +45,10 @@
         <option value="fabric-delete" data-i18n="openccu-loom-matter.action.fabric-delete"></option>
         <option value="factory-reset" data-i18n="openccu-loom-matter.action.factory-reset"></option>
       </optgroup>
-      <optgroup data-i18n="[label]openccu-loom-matter.group.exposable">
-        <option value="exposable" data-i18n="openccu-loom-matter.action.exposable"></option>
-        <option value="exposable-set" data-i18n="openccu-loom-matter.action.exposable-set"></option>
-        <option value="exposable-bulk" data-i18n="openccu-loom-matter.action.exposable-bulk"></option>
+      <optgroup data-i18n="[label]openccu-loom-matter.group.exposure">
+        <option value="exposure" data-i18n="openccu-loom-matter.action.exposure"></option>
+        <option value="exposure-set" data-i18n="openccu-loom-matter.action.exposure-set"></option>
+        <option value="exposure-preview" data-i18n="openccu-loom-matter.action.exposure-preview"></option>
       </optgroup>
       <optgroup data-i18n="[label]openccu-loom-matter.group.commissioning">
         <option value="setup-payload" data-i18n="openccu-loom-matter.action.setup-payload"></option>
@@ -73,9 +73,10 @@
 </script>
 
 <script type="text/html" data-help-name="openccu-loom-matter">
-  <p>The Matter bridge surface (<code>/matter/…</code>): what the bridge
-  exposes to Matter controllers, which ecosystems are commissioned to it, and
-  the commissioning windows that let new ones in.</p>
+  <p>The Matter bridge surface (<code>/node/…</code> since daemon API 14):
+  what the bridge exposes to Matter controllers, which ecosystems are
+  commissioned to it, and the commissioning windows that let new ones in.
+  Every write and the pairing codes need an admin.</p>
 
   <h3>Status and topology</h3>
   <ul>
@@ -91,43 +92,44 @@
     <li><b>sessions</b> — open Matter sessions with per-session liveness.</li>
     <li><b>events</b> — recent pairing, session and discovery events; the
       moments that explain a failed pairing.</li>
-    <li><b>force-sync</b> — re-assembles the exposed topology (admin). Use it
-      after allowlist changes that the bridge has not picked up.</li>
+    <li><b>force-sync</b> — rebuilds the endpoints from the current
+      selection (admin); pairings are untouched. An <b>exposure-set</b>
+      already does this itself.</li>
   </ul>
 
   <h3>Fabrics</h3>
   <ul>
     <li><b>fabrics</b> — the ecosystems commissioned to the bridge.</li>
-    <li><b>fabric-delete</b> — unpairs the fabric <code>msg.fabricId</code>
-      (admin). That ecosystem loses the bridge.</li>
+    <li><b>fabric-delete</b> — unpairs the fabric whose index (1…254) is
+      <code>msg.fabricId</code> (admin). That ecosystem loses the bridge.</li>
     <li><b>factory-reset</b> — removes <em>every</em> fabric (admin,
       destructive): every controller has to re-pair afterwards. The node fills
       in the daemon's required confirmation token itself, so this action needs
       no payload — wire it behind something deliberate.</li>
   </ul>
 
-  <h3>Allowlist</h3>
+  <h3>Exposure</h3>
   <ul>
-    <li><b>exposable</b> — every candidate source with its current allowlist
-      state.</li>
-    <li><b>exposable-set</b> — updates one row (admin).
-      <code>msg.payload</code> needs
-      <code>{central_name, device_address, channel_no, dp_kind, dp_key,
-      enabled}</code>; <code>friendly_name</code> is optional.
-      <code>dp_kind</code> is one of <code>custom</code>,
-      <code>generic</code>, <code>calculated</code>, <code>combined</code>,
-      <code>measurement</code>.</li>
-    <li><b>exposable-bulk</b> — applies several such rows at once. Send them as
-      a bare array in <code>msg.payload</code> (the node wraps it) or as
-      <code>{items: [...]}</code>.</li>
+    <li><b>exposure</b> — every item the bridge could expose, with its
+      <code>key</code>, whether it is enabled and the verdict on whether it
+      can be mapped at all.</li>
+    <li><b>exposure-set</b> — applies a batch of item changes and rebuilds
+      the endpoints (admin). <code>msg.payload</code> is one change
+      <code>{key, enabled}</code> (<code>name</code> renames the item), an
+      array of them, or <code>{items: [...]}</code>. Take the keys from
+      <b>exposure</b>; they are the daemon's and are not built by hand.</li>
+    <li><b>exposure-preview</b> — the same body; answers with the items as
+      the batch would leave them, and writes nothing.</li>
   </ul>
 
   <h3>Commissioning</h3>
   <ul>
-    <li><b>setup-payload</b> — the bridge's QR and manual pairing code.</li>
-    <li><b>commissioning-window</b> — reads the current window state.</li>
-    <li><b>commissioning-open</b> — opens a window for the first controller.
-      <b>share</b> opens one for an additional ecosystem. Both take an optional
+    <li><b>setup-payload</b> / <b>commissioning-window</b> — the pairing
+      codes (admin): of the open window, else the configured ones;
+      <code>window_open</code> tells which.</li>
+    <li><b>commissioning-open</b> — opens a commissioning window (admin) and
+      answers with its codes. <b>share</b> is the same window, for handing the
+      bridge to another ecosystem. Both take an optional
       <code>msg.durationSeconds</code> (180…900, default 900); a
       <code>msg.payload</code> object is passed through as the body
       instead.</li>

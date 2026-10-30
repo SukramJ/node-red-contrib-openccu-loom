@@ -10,7 +10,7 @@
     "group": {
       "status": "Status & Topologie",
       "fabrics": "Fabrics",
-      "exposable": "Freigabeliste",
+      "exposure": "Freigabe",
       "commissioning": "Inbetriebnahme"
     },
     "action": {
@@ -24,9 +24,9 @@
       "fabrics": "Fabrics auflisten",
       "fabric-delete": "Fabric entfernen",
       "factory-reset": "Alle Fabrics entfernen",
-      "exposable": "Freigabeliste lesen",
-      "exposable-set": "Freigabe setzen",
-      "exposable-bulk": "Freigaben gesammelt setzen",
+      "exposure": "Freigabe lesen",
+      "exposure-set": "Freigaben anwenden",
+      "exposure-preview": "Freigaben vorab prüfen",
       "setup-payload": "Kopplungscode",
       "commissioning-window": "Fenster-Status",
       "commissioning-open": "Fenster öffnen",
@@ -34,7 +34,7 @@
       "share": "Bridge teilen"
     },
     "tip": {
-      "payload": "msg.payload liefert die Schreib-Bodies (exposable-set/-bulk) bzw. den Fenster-Body; msg.fabricId und msg.durationSeconds überschreiben die Felder. factory-reset setzt das Bestätigungs-Token selbst."
+      "payload": "msg.payload liefert die Freigabe-Änderungen (exposure-set/-preview: {key, enabled, name?}, ein Array davon oder {items}) bzw. den Fenster-Body; msg.fabricId und msg.durationSeconds überschreiben die Felder. factory-reset setzt das Bestätigungs-Token selbst."
     }
   }
 }
