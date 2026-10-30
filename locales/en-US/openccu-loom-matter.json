@@ -10,7 +10,7 @@
     "group": {
       "status": "Status & topology",
       "fabrics": "Fabrics",
-      "exposable": "Allowlist",
+      "exposure": "Exposure",
       "commissioning": "Commissioning"
     },
     "action": {
@@ -24,9 +24,9 @@
       "fabrics": "List fabrics",
       "fabric-delete": "Unpair fabric",
       "factory-reset": "Remove all fabrics",
-      "exposable": "Read allowlist",
-      "exposable-set": "Set allowlist row",
-      "exposable-bulk": "Bulk-set allowlist",
+      "exposure": "Read exposure",
+      "exposure-set": "Apply exposure changes",
+      "exposure-preview": "Preview exposure changes",
       "setup-payload": "Pairing code",
       "commissioning-window": "Window state",
       "commissioning-open": "Open window",
@@ -34,7 +34,7 @@
       "share": "Share bridge"
     },
     "tip": {
-      "payload": "msg.payload carries the write bodies (exposable-set/-bulk) or the window body; msg.fabricId and msg.durationSeconds override the fields. factory-reset supplies the confirmation token itself."
+      "payload": "msg.payload carries the exposure changes (exposure-set/-preview: {key, enabled, name?}, an array of them, or {items}) or the window body; msg.fabricId and msg.durationSeconds override the fields. factory-reset supplies the confirmation token itself."
     }
   }
 }
