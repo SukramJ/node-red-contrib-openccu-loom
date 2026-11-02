@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report in openccu-loom / Im openccu-loom-Repository melden
+    url: https://github.com/SukramJ/openccu-loom/issues/new/choose
+    about: "Issues with these Node-RED nodes are tracked in openccu-loom. / Probleme mit diesen Node-RED-Nodes werden in openccu-loom erfasst."
