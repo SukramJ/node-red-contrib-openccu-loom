@@ -7,3 +7,6 @@ yarn-error.log*
 .vscode/
 *.tgz
 package-lock.json
+
+# Claude Code local settings
+.claude/settings.local.json
