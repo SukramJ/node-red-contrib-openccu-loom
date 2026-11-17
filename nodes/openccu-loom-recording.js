@@ -42,7 +42,7 @@ module.exports = function (RED) {
       try {
         let res;
         if (action === "get") {
-          res = await client.get("/history/recording", { params: coords });
+          res = await client.get("/measurements/recording", { params: coords });
         } else if (action === "set") {
           // record omitted clears the override and hands the data point
           // back to the configured default (the reply's `source` says
@@ -50,7 +50,7 @@ module.exports = function (RED) {
           const record = msg.record != null ? msg.record : config.record;
           const body = { ...coords };
           if (record != null && record !== "") body.record = !!record;
-          res = await client.put("/history/recording", body);
+          res = await client.put("/measurements/recording", body);
         } else {
           return done(new Error(`unknown action: ${action}`));
         }

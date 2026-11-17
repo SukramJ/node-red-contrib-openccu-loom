@@ -3,6 +3,32 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.0] - 2026-11-17
+
+Tracks the daemon's API 16.4.0 (openccu-loom 0.105.0), up from 15.1.0.
+
+### Changed
+
+- **`SUPPORTED_API_MAJOR` raised 15 -> 16 and the vendored spec refreshed to
+  the v0.105.0 tag.** The other routes the nodes call changed only
+  additively (a `device` filter on `/schedules`, a 409 on
+  `/system/firmware/download`, a `structural` list on `/node/endpoints`).
+
+- **Breaking: the `recording` node talks to `/measurements/recording`.**
+  API 16.0.0 removed `/history`, `/energy` and `/diagrams`; the per-data-point
+  recording override moved from `/history/recording` to
+  `/measurements/recording` with the same query and body (`central`,
+  `interface_id`, `channel`, `parameter`, `record`) and the same reply. The
+  route exists only while `north.measurements.enabled` is true and answers 404
+  otherwise (it was 503 while history was off).
+
+### Removed
+
+- **Breaking: the `diagrams` node.** The daemon no longer serves `/diagrams`
+  (saved diagram definitions left the Config UI with the history feature), so
+  the node, its locales and its `package.json` entry are gone. There is no
+  replacement; flows that contain it must drop it.
+
 ## [0.9.0] - 2026-10-30
 
 Tracks the daemon's API 15.1.0 (openccu-loom 0.95.0), up from 13.9.1.

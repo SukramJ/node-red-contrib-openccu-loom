@@ -243,12 +243,6 @@ Administers the CCU's heating groups (`/groups`). Actions: `list`, `types`
 `msg.typeId` may take), `create`, `update`, `delete`. `msg.members` supplies
 the member list; mutating calls require admin.
 
-### `diagrams`
-
-CRUD for the Config UI's saved diagram definitions (`/diagrams`). `list`
-returns the caller's own plus the shared ones; `msg.config` carries the
-definition, `msg.visibility` is `private|shared`.
-
 ### `links`
 
 `list` — the global direct-link overview (`GET /links`, `msg.locale` steers the
@@ -259,8 +253,8 @@ stays on the WebSocket (`central.create_links` / `central.remove_links` via the
 
 ### `recording`
 
-Reads and sets the per-data-point history recording state
-(`GET/PUT /history/recording`). Both actions address one data point via
+Reads and sets the per-data-point measurement recording state
+(`GET/PUT /measurements/recording`). Both actions address one data point via
 `msg.central`, `msg.interfaceId`, `msg.channel` and `msg.parameter`; `get`
 reports `{record, source}`, and `set` without `msg.record` clears the override
 and hands the data point back to the configured default.
