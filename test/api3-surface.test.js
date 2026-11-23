@@ -2,7 +2,7 @@
 
 // Covers the REST surface this package gained with the daemon's API 3.x:
 // the new actions on existing nodes and the four nodes added for the
-// group / diagram / link / recording endpoints. Every case pins the exact
+// group / link / recording endpoints. Every case pins the exact
 // request (method, URL incl. query string, body) the node must produce,
 // which is what a spec refresh would break first.
 
@@ -19,7 +19,6 @@ const sysvarNode = require("../nodes/openccu-loom-sysvar.js");
 const paramsetNode = require("../nodes/openccu-loom-paramset.js");
 const centralsNode = require("../nodes/openccu-loom-centrals.js");
 const groupsNode = require("../nodes/openccu-loom-groups.js");
-const diagramsNode = require("../nodes/openccu-loom-diagrams.js");
 const linksNode = require("../nodes/openccu-loom-links.js");
 const recordingNode = require("../nodes/openccu-loom-recording.js");
 const alarmAdminNode = require("../nodes/openccu-loom-alarm-admin.js");
@@ -412,48 +411,6 @@ const CASES = [
     { method: "DELETE", url: "/groups/7?central=Home", body: null },
   ],
 
-  // --- diagrams ------------------------------------------------------
-  [
-    "diagrams list",
-    diagramsNode,
-    "openccu-loom-diagrams",
-    { action: "list" },
-    {},
-    { method: "GET", url: "/diagrams", body: null },
-  ],
-  [
-    "diagrams get",
-    diagramsNode,
-    "openccu-loom-diagrams",
-    { action: "get" },
-    { diagramId: "d-1" },
-    { method: "GET", url: "/diagrams/d-1", body: null },
-  ],
-  [
-    "diagrams create carries name, visibility and config",
-    diagramsNode,
-    "openccu-loom-diagrams",
-    { action: "create" },
-    { diagramName: "Heizung", visibility: "shared", config: { series: [] } },
-    { method: "POST", url: "/diagrams", body: { name: "Heizung", visibility: "shared", config: { series: [] } } },
-  ],
-  [
-    "diagrams update",
-    diagramsNode,
-    "openccu-loom-diagrams",
-    { action: "update" },
-    { diagramId: "d-1", diagramName: "Heizung" },
-    { method: "PUT", url: "/diagrams/d-1", body: { name: "Heizung" } },
-  ],
-  [
-    "diagrams delete",
-    diagramsNode,
-    "openccu-loom-diagrams",
-    { action: "delete" },
-    { diagramId: "d-1" },
-    { method: "DELETE", url: "/diagrams/d-1", body: null },
-  ],
-
   // --- links ---------------------------------------------------------
   [
     "links list forwards central and locale",
@@ -485,7 +442,7 @@ const CASES = [
     { central: "Home", interfaceId: "HmIP-RF", channel: "AABBCC:1", parameter: "ACTUAL_TEMPERATURE" },
     {
       method: "GET",
-      url: "/history/recording?central=Home&interface_id=HmIP-RF&channel=AABBCC%3A1&parameter=ACTUAL_TEMPERATURE",
+      url: "/measurements/recording?central=Home&interface_id=HmIP-RF&channel=AABBCC%3A1&parameter=ACTUAL_TEMPERATURE",
       body: null,
     },
   ],
@@ -497,7 +454,7 @@ const CASES = [
     { central: "Home", interface_id: "HmIP-RF", channel: "AABBCC:1", parameter: "ACTUAL_TEMPERATURE" },
     {
       method: "PUT",
-      url: "/history/recording",
+      url: "/measurements/recording",
       body: {
         central: "Home",
         interface_id: "HmIP-RF",
@@ -520,7 +477,7 @@ const CASES = [
     },
     {
       method: "PUT",
-      url: "/history/recording",
+      url: "/measurements/recording",
       body: {
         central: "Home",
         interface_id: "HmIP-RF",
@@ -785,14 +742,6 @@ describe("API 3.x nodes: argument validation", function () {
       { action: "update" },
       { groupName: "x" },
       /msg\.groupId missing/,
-    ],
-    [
-      "diagrams create without a name",
-      diagramsNode,
-      "openccu-loom-diagrams",
-      { action: "create" },
-      {},
-      /needs msg\.diagramName/,
     ],
     [
       "links test without the two channel addresses",

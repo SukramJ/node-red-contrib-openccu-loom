@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: openccu-loom REST API
-  version: 15.1.0
+  version: 17.0.0
   description: |
     North-bound REST + WebSocket surface of the openccu-loom daemon.
     Errors follow RFC 9457 problem+json.
@@ -584,6 +584,40 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /devices/{addr}/projection:
+    get:
+      operationId: getDeviceProjection
+      tags: [devices]
+      summary: How the device stands on the north-bound planes
+      description: |
+        Per plane: what is published for the device and under which
+        identifiers, what is carried inside another entry, and what is
+        left out with the named reason.
+
+        A plane answers from the decision its publisher acts on, so the
+        answer and the published set follow one set of rules. The answer
+        is computed when asked; nothing is recorded.
+
+        Planes are added release by release. This version answers for
+        `matter`, `measurements`, `ha_discovery`, `mqtt_raw` and `rest`.
+        Capability `projection.v1`.
+      parameters:
+        - $ref: "#/components/parameters/Address"
+        - name: plane
+          in: query
+          required: false
+          schema: { type: string }
+          description: >-
+            Narrows the answer to one plane. A name this daemon does not
+            answer for yields an empty `planes` list.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceProjection" }
+        "404":
+          $ref: "#/components/responses/NotFound"
   /devices/{addr}/channels:
     get:
       operationId: listDeviceChannels
@@ -1228,128 +1262,20 @@ paths:
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
-  /diagrams:
-    get:
-      operationId: listDiagrams
-      summary: List saved diagram definitions (own + shared)
-      tags: [core]
-      description: |
-        Returns the caller's own named multi-series diagram definitions
-        plus every diagram shared by other users (SV03). Diagrams are
-        Loom-native metadata; each references measurement-history data
-        points that the recorder samples.
-      responses:
-        "200":
-          description: The caller's visible diagrams.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ListDiagramsResponse"
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-    post:
-      operationId: createDiagram
-      summary: Create a diagram definition
-      tags: [core]
-      security:
-        - basicAuth: []
-        - bearerAuth: []
-        - openIdConnect: [operator]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/DiagramWriteRequest" }
-            example:
-              name: Living-room climate
-              visibility: private
-              config:
-                series:
-                  - central: ccu1
-                    interface_id: ccu1-HmIP-RF
-                    channel_address: "0001ABCD:1"
-                    parameter: ACTUAL_TEMPERATURE
-      responses:
-        "201":
-          description: Created.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DiagramConfig" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-  /diagrams/{id}:
-    get:
-      operationId: getDiagram
-      summary: Read a diagram definition
-      tags: [core]
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      responses:
-        "200":
-          description: The diagram.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DiagramConfig" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-    put:
-      operationId: updateDiagram
-      summary: Update a diagram definition (owner or admin)
-      tags: [core]
-      security:
-        - basicAuth: []
-        - bearerAuth: []
-        - openIdConnect: [operator]
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/DiagramWriteRequest" }
-            example:
-              name: Living-room climate
-              visibility: shared
-              config: { series: [{ central: ccu1, parameter: ACTUAL_TEMPERATURE }] }
-      responses:
-        "200":
-          description: Updated.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DiagramConfig" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-    delete:
-      operationId: deleteDiagram
-      summary: Delete a diagram definition (owner or admin)
-      tags: [core]
-      security:
-        - basicAuth: []
-        - bearerAuth: []
-        - openIdConnect: [operator]
-      parameters:
-        - { in: path, name: id, required: true, schema: { type: string } }
-      responses:
-        "204": { description: Deleted. }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /schedules:
     get:
       operationId: listSchedules
-      summary: Fleet-wide overview of devices carrying a week schedule
+      summary: Fleet-wide overview of week schedules
       description: |
-        Returns every device that carries a week schedule, across all
-        configured centrals, with the channel expected to hold it. The
-        counterpart to `/links`: the one way to answer "which devices
-        have a schedule at all" without opening each device in turn.
+        Returns one entry per week schedule, across all configured
+        centrals, with the channel expected to hold it. A device with two
+        schedules is listed twice: an HmIP-WGT carries a heating schedule
+        on its climate channel and a switch schedule on its
+        SWITCH_WEEK_PROFILE channel. The counterpart to `/links`: the one
+        way to answer "which devices have a schedule at all" without
+        opening each device in turn. `device` narrows the list to one
+        device, which is how a device page learns how many schedules it
+        has.
 
         The list is derived from channel **types** — a `*_WEEK_PROFILE`
         channel, or one of the climate channel types that carry the
@@ -1359,6 +1285,12 @@ paths:
         pay for a question the detail view answers exactly once, on
         click. `kind` says which of the two paths matched.
       tags: [core]
+      parameters:
+        - in: query
+          name: device
+          required: false
+          schema: { type: string }
+          description: Device address; only that device's schedules are returned.
       responses:
         "200":
           description: OK
@@ -2710,7 +2642,7 @@ paths:
       operationId: getPreference
       summary: Read the caller's UI preference for {key}
       description: >
-        Per-user UI state (e.g. key `favorites`). The value is opaque
+        Per-user UI state (e.g. key `start_route`). The value is opaque
         JSON owned by the SPA. Scoped to the authenticated subject.
         A key that was never stored is not an error: the response is
         200 with `value: null`.
@@ -3456,8 +3388,10 @@ paths:
 
         Returns 202 once the CCU reported the download succeeded, and 502
         when it reported a failure — there is no image for that version and
-        serial, or the transfer failed. The whole body is optional for
-        single-CCU deployments.
+        serial, or the transfer failed. A system that runs one system
+        update at a time (openccu-lite) answers 409 while a download, an
+        upload or an install is already running; the problem's detail
+        names it. The whole body is optional for single-CCU deployments.
       tags: [system]
       security:
         - basicAuth: []
@@ -3474,6 +3408,7 @@ paths:
           description: Download triggered
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/UnprocessableEntity" }
         "502": { $ref: "#/components/responses/BadGateway" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
@@ -5257,95 +5192,19 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
-  /history:
-    get:
-      operationId: getHistory
-      summary: Bucketed measurement history for one data point
-      tags: [history]
-      description: >
-        Server-side-bucketed view of one numeric data point's recorded
-        measurement history, sized for charting. Requires the opt-in
-        history feature (persistence.history.enabled); the route is absent
-        and returns 404 when disabled. The half-open range [from,to) is
-        aggregated into at most `buckets` evenly spaced buckets, each
-        carrying avg/min/max/count; empty buckets are omitted.
-
-
-        The source resolution is chosen from the resulting bucket width:
-        buckets at least a day wide are served from the daily rollup, at
-        least an hour wide from the hourly rollup, anything finer from raw
-        samples — each completed by the not-yet-rolled-up tail so the
-        running hour and day are never missing. A range that reaches
-        further back than the (short) raw retention is therefore answered
-        from the rollups instead of coming back empty. The chosen tier is
-        reported in the `X-History-Tier` response header.
-      parameters:
-        - in: query
-          name: central
-          required: true
-          schema: { type: string }
-          description: Central (CCU) name that owns the data point.
-        - in: query
-          name: interface_id
-          required: true
-          schema: { type: string }
-          description: Canonical interface id (&lt;central&gt;-&lt;interface&gt;).
-        - in: query
-          name: channel
-          required: true
-          schema: { type: string }
-          description: Channel address, e.g. ABC0000001:4.
-        - in: query
-          name: parameter
-          required: true
-          schema: { type: string }
-          description: Parameter name, e.g. ACTUAL_TEMPERATURE.
-        - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date-time }
-          description: Inclusive lower bound (RFC3339).
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date-time }
-          description: Exclusive upper bound (RFC3339). Must be after from.
-        - in: query
-          name: buckets
-          schema: { type: integer, minimum: 1, maximum: 2000, default: 200 }
-          description: >
-            Target bucket count. Capped to 2000; values &lt;= 0 or absent
-            use the default (200).
-      responses:
-        "200":
-          description: Chronological list of non-empty buckets.
-          headers:
-            X-History-Tier:
-              description: >
-                Source resolution the answer was assembled from: `raw`
-                (raw samples), `hour` (hourly rollup + un-rolled tail) or
-                `day` (daily rollup + hourly and raw tails).
-              schema: { type: string, enum: [raw, hour, day] }
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/HistoryBucket" }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-  /history/recording:
+  /measurements/recording:
     get:
       operationId: getRecordingOverride
       summary: Effective per-datapoint recording state (read-only)
-      tags: [history]
+      tags: [measurements]
       description: |
         Reports whether one data point's live values are currently
-        persisted to measurement history, and whether that decision comes
-        from an explicit override or the parameter-name glob policy. Part
-        of the opt-in history feature; 503 when history is disabled.
+        forwarded to the measurement target, and whether that decision
+        comes from an explicit override or the parameter-name glob policy
+        (`north.measurements.include` / `exclude`). The route is mounted
+        only while `north.measurements.enabled` is true and is absent
+        (404) otherwise; the `measurements.v1` capability reports the
+        same condition.
       parameters:
         - { in: query, name: central, required: true, schema: { type: string } }
         - { in: query, name: interface_id, required: true, schema: { type: string } }
@@ -5358,16 +5217,18 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/RecordingState" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
     put:
       operationId: putRecordingOverride
       summary: Set or clear a per-datapoint recording override
-      tags: [history]
+      tags: [measurements]
       description: |
-        Forces recording on/off for one data point, or (record: null)
+        Forces forwarding on/off for one data point, or (record: null)
         clears the override so it falls back to the glob policy. Toggling
-        affects only future samples; existing rows are untouched. Part of
-        the opt-in history feature; 503 when disabled.
+        affects only future samples; what the target already holds is
+        untouched. Mounted only while `north.measurements.enabled` is
+        true; absent (404) otherwise.
       security:
         - basicAuth: []
         - bearerAuth: []
@@ -5390,65 +5251,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/RecordingState" }
         "400": { $ref: "#/components/responses/BadRequest" }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-  /energy:
-    get:
-      operationId: getEnergy
-      summary: Per-device power/energy breakdown over time
-      tags: [history]
-      description: >
-        Per-device power/energy breakdown for the energy view, read from
-        the hourly/daily measurement-history rollup tiers (month
-        re-aggregates the daily tier). Requires the opt-in history
-        feature (persistence.history.enabled); the route is absent and
-        returns 404 when disabled. POWER is averaged/peaked per bucket;
-        ENERGY_COUNTER and ENERGY_COUNTER_FEED_IN are reported as the
-        bucket's cumulative-counter delta (last-first) in Wh. A counter
-        that went backwards within a bucket (meter reset on re-pair /
-        firmware event) reports the delta as `last` (never negative) and
-        sets `reset` on that bucket.
-      parameters:
-        - in: query
-          name: central
-          required: true
-          schema: { type: string }
-          description: Central (CCU) name that owns the energy devices.
-        - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date-time }
-          description: Inclusive lower bound (RFC3339).
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date-time }
-          description: Exclusive upper bound (RFC3339). Must be after from.
-        - in: query
-          name: group
-          schema: { type: string, enum: [hour, day, month], default: day }
-          description: >
-            Bucket granularity. Absent uses the default (day). `day` and
-            `month` buckets are local calendar buckets in the daemon's own
-            timezone, so a bucket's `ts` is a local midnight respectively a
-            local first-of-month and covers 23, 24 or 25 hours across a
-            daylight-saving transition. `hour` buckets are aligned to the
-            hour on the UTC axis.
-        - in: query
-          name: device
-          schema: { type: string }
-          description: >
-            Bare device address to scope the breakdown to one device.
-            Omitted returns every energy device on the central.
-      responses:
-        "200":
-          description: Per-device power/energy breakdown for the requested range.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/EnergyResponse" }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
+        "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /incidents:
     get:
@@ -6346,7 +6149,7 @@ paths:
   # The daemon mounts go-fabric-ui's handler under /api/v1/node
   # (internal/north/rest/router.go, fabricui.Mount); these operations and
   # the schemas named Node*/Fabric*/… below are its contract
-  # (contract/openapi.yaml of go-fabric-ui v0.1.1, paths /node/*), copied
+  # (contract/openapi.yaml of go-fabric-ui v0.9.0, paths /node/*), copied
   # so the request validator and the clients generated from this file
   # know them. tests/contract/node_contract_sync_test.go holds the copy
   # to the pinned module version. `x-admin: true` is go-fabric-ui's own
@@ -6462,12 +6265,94 @@ paths:
       tags: [node]
       operationId: listEndpoints
       summary: The bridged endpoints a controller sees.
+      description: |
+        `endpoints` are the bridged endpoints of the node's topology
+        (go-fabric `Node.Topology`), each device followed by its parts.
+        `structural` (0.5.0) are the endpoints no bridged device declares —
+        the root and the Aggregator — from the node's endpoint tree
+        (go-fabric `Node.Endpoints`), root first, then by number.
       responses:
         "200":
           description: The endpoints.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/EndpointList" }
+        "503": { $ref: "#/components/responses/NodeProblem" }
+  /node/endpoints/{ep}:
+    parameters:
+      - $ref: "#/components/parameters/EndpointNumber"
+    get:
+      tags: [node]
+      operationId: getEndpointDetail
+      summary: One endpoint the node serves, with its attribute values (0.4.1).
+      description: |
+        Read through the node's own read path (go-fabric `Node.ReadCluster`),
+        as a controller's read reaches it, without access control: the
+        Descriptor's DeviceTypeList, TagList and PartsList, the FixedLabel
+        and UserLabel entries, and every server cluster of its ServerList
+        with its revision, feature map, attribute values (JSON by field
+        name), data version and the names go-fabric's schema gives its
+        attributes, commands and events. An attribute whose read failed
+        carries the IM `status` it was answered with and no `value` (0.5.0,
+        go-fabric `AttributeValue.Status`). The endpoint's parent, parts,
+        device types, name and scope come from the node's endpoint tree
+        (go-fabric `Node.Endpoints`, 0.5.0). `decisions` are the surface
+        report's decisions on this endpoint. The root endpoint and the
+        Aggregator answer too. 404 for an endpoint the node does not serve,
+        503 before the node started.
+      responses:
+        "200":
+          description: The endpoint.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EndpointDetail" }
+        "400": { $ref: "#/components/responses/NodeProblem" }
+        "404": { $ref: "#/components/responses/NodeProblem" }
+        "500": { $ref: "#/components/responses/NodeProblem" }
+        "503": { $ref: "#/components/responses/NodeProblem" }
+  /node/endpoints/{ep}/events:
+    parameters:
+      - $ref: "#/components/parameters/EndpointNumber"
+    get:
+      tags: [node]
+      operationId: listEndpointEvents
+      summary: The events the node's event log holds for one endpoint (0.4.1).
+      description: |
+        The records a controller's event read is answered from (go-fabric
+        `Node.Events` with the endpoint's filter), oldest first: the log is
+        bounded and volatile, emptied when the node stops. An endpoint no
+        longer served keeps the events it emitted while the log holds them,
+        so an unknown endpoint is an empty list, not 404. Not the
+        diagnostic trace of `GET /node/events`.
+      parameters:
+        - $ref: "#/components/parameters/EventSince"
+        - $ref: "#/components/parameters/EventLimit"
+      responses:
+        "200":
+          description: The events, oldest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventRecordList" }
+        "400": { $ref: "#/components/responses/NodeProblem" }
+        "503": { $ref: "#/components/responses/NodeProblem" }
+  /node/surface:
+    get:
+      tags: [node]
+      operationId: getNodeSurface
+      summary: The node's surface report.
+      description: |
+        go-fabric's `surface.Report` of the node in go-fabric's own JSON
+        encoding (`surface.Report.MarshalJSON`): the effective surface per
+        endpoint, the decision ledger, the withheld elements and the
+        surface changes announced in this process. Element and cluster ids
+        are lowercase `0x` hex strings, as wide as their kind (a device
+        type four digits, everything else eight).
+      responses:
+        "200":
+          description: The report.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SurfaceReport" }
         "503": { $ref: "#/components/responses/NodeProblem" }
   /node/sessions:
     get:
@@ -6481,6 +6366,28 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SessionList" }
         "503": { $ref: "#/components/responses/NodeProblem" }
+  /node/topology:
+    get:
+      tags: [node]
+      operationId: getNodeTopology
+      summary: The node as a graph — its bridge, its fabrics and the sessions on them.
+      description: |
+        Built from go-fabric's `Topology`, `FabricInfos` and
+        `SessionDiagnostics`: the node, its Aggregator, the bridged devices
+        and their parts (`contains`), each fabric with the sessions on it
+        (`contains`) and every session to the node (`session`). A PASE
+        session (fabric index 0) hangs on the node without a fabric. Node
+        ids are `node`, `ep:<n>`, `fabric:<index>`, `session:<id>`.
+        Subscriptions are counts per session. 503 while the host serves no
+        node or the node has not assembled its endpoints.
+      responses:
+        "200":
+          description: The graph.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TopologyGraph" }
+        "500": { $ref: "#/components/responses/NodeProblem" }
+        "503": { $ref: "#/components/responses/NodeProblem" }
   /node/mdns:
     get:
       tags: [node]
@@ -6492,6 +6399,26 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Mdns" }
+        "503": { $ref: "#/components/responses/NodeProblem" }
+  /node/mdns/reannounce:
+    post:
+      tags: [node]
+      operationId: reannounce
+      summary: Announce the node's DNS-SD records now.
+      description: |
+        Publishes every advertised service once per interface, with the
+        goodbyes of the addresses that left (go-fabric
+        `Node.TriggerReannounce`, 0.7.0) — for an operator who changed the
+        network and does not want to wait for the advertiser's schedule. A
+        no-op on an advertiser that cannot reannounce; 204 either way.
+      x-admin: true
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      responses:
+        "204": { description: Announced. }
+        "403": { $ref: "#/components/responses/NodeProblem" }
         "503": { $ref: "#/components/responses/NodeProblem" }
   /node/compatibility:
     get:
@@ -6629,15 +6556,77 @@ paths:
         "403": { $ref: "#/components/responses/NodeProblem" }
         "500": { $ref: "#/components/responses/NodeProblem" }
         "503": { $ref: "#/components/responses/NodeProblem" }
+  /node/maintenance/erase:
+    post:
+      tags: [node]
+      operationId: erase
+      summary: Erase the node — its store and endpoint records — and end it. The body must name the action.
+      description: |
+        The host's erase (0.7.0, `Options.Erase`): go-fabric
+        `Node.FactoryReset` removes every fabric, stops the node and erases
+        what it persisted; the node is single-use, so the host builds a new
+        one on the erased store or restarts. `Status.erase` says whether the
+        host wires it. Unlike `POST /node/maintenance/factory-reset`, which
+        removes the fabrics and keeps the node running, this ends the node:
+        until the host brings one back, the node routes may answer with the
+        old node's state or fail. 501 `not_implemented` when the host wires
+        no erase.
+      x-admin: true
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EraseRequest" }
+      responses:
+        "204": { description: Erased; the host brings the node back or restarts. }
+        "400": { $ref: "#/components/responses/NodeProblem" }
+        "403": { $ref: "#/components/responses/NodeProblem" }
+        "500": { $ref: "#/components/responses/NodeProblem" }
+        "501": { $ref: "#/components/responses/NodeProblem" }
+        "503": { $ref: "#/components/responses/NodeProblem" }
   /node/stream:
     get:
       tags: [node]
       operationId: stream
       summary: Server-sent events.
       description: |
-        `event:` is one of fabric_added, fabric_removed, window_opened,
-        window_closed, endpoints_changed, exposure_changed; `data:` is the
-        JSON payload (`FabricEvent`, `WindowEvent`, `{}`, `ExposureEvent`).
+        `event:` is one of fabric_added, fabric_removed, fabric_updated,
+        commissioning_complete, window_opened, window_closed,
+        endpoints_changed, exposure_changed, surface_changed,
+        session_opened, session_closed, subscriptions_changed,
+        attribute_changed, cluster_event, health_sample, diagnostic_event,
+        nodes_changed; `data:` is the JSON payload (`FabricEvent`,
+        `WindowEvent`, `{}`, `ExposureEvent`, `SurfaceChangedEvent`,
+        `SessionEvent`, `AttributeChangedEvent`, `EventRecord`,
+        `HealthSampleEvent`, `DiagnosticEvent`, `NodesChangedEvent`).
+        fabric_added (an AddNOC installed the fabric), fabric_updated (an
+        UpdateNOC, UpdateFabricLabel or SetVIDVerificationStatement changed
+        it; `FabricEvent` as fabric_added) and commissioning_complete (a
+        CommissioningComplete succeeded; `FabricEvent` with `fabric_index`
+        alone) are go-fabric's node.Observers OnFabricAdded,
+        OnFabricUpdated and OnCommissioningComplete (0.7.0): a
+        commissioning reports fabric_added, then commissioning_complete.
+        cluster_event (0.7.0) is every event a cluster server emitted and
+        the node's event log recorded (node.Observers.OnEvent), in the
+        shape of `GET /node/endpoints/{ep}/events`.
+        nodes_changed (0.6.0) follows `POST /nodes`, `PUT
+        /nodes/{node}/label` and `DELETE /nodes/{node}` on every node's
+        stream, with the keys of the nodes created, renamed or deleted: a
+        page reloads `GET /nodes`.
+        attribute_changed (0.4.1) names the attributes that changed, never
+        their values: a page refetches what it shows.
+        health_sample (0.5.0) is every verdict of the node's health probe
+        (go-fabric `Node.OnHealthSample`); diagnostic_event (0.5.0) is every
+        entry the node adds to the trace `GET /node/events` serves (go-fabric
+        `Node.OnDiagnosticEvent`), in the same shape.
+        session_opened reports CASE sessions only (go-fabric
+        node.Observers.OnSessionOpened); a PASE session is not reported, and
+        session_closed and subscriptions_changed follow only a session
+        session_opened reported.
         A comment line arrives every 15 s. No payload carries a passcode.
       responses:
         "200":
@@ -6840,6 +6829,32 @@ paths:
         "500": { $ref: "#/components/responses/InternalError" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
+  /ui/editor-component:
+    get:
+      operationId: getEditorComponent
+      summary: Where the device editor's web component is, and what it calls
+      description: |
+        The device editor ships as a web component next to the SPA
+        (ADR 0088, ADR 0089). An embedding integration reads this manifest,
+        fetches the module from `module_url` (its file name carries the
+        content hash, it is served without a session and cached
+        immutably), serves it from its own origin, and relays only REST
+        calls whose path lies under one of `routes`. A prefix covers itself
+        and every path below it.
+
+        A build without the component bundle answers 404.
+      tags: [config-admin]
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+        - openIdConnect: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EditorComponentManifest" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /ui/surfaces:
     get:
       operationId: getUISurfaces
@@ -6855,7 +6870,7 @@ paths:
         `opens`). Both come from this one payload so the two views
         cannot drift apart.
 
-        Capability gates (Matter, measurement history) and role gates are
+        Capability gates (Matter, per-central features) and role gates are
         NOT folded into `effective` — the client applies those, and they
         answer a different question than the operator's configuration.
       tags: [config-admin]
@@ -8417,6 +8432,23 @@ components:
             interfaces, edit Matter fabrics)
       openIdConnectUrl: /.well-known/openid-configuration
   parameters:
+    # The node page family's parameters (go-fabric-ui contract v0.9.0).
+    EndpointNumber:
+      name: ep
+      in: path
+      required: true
+      description: The endpoint number.
+      schema: { type: integer, minimum: 0, maximum: 65535 }
+    EventSince:
+      name: since
+      in: query
+      description: The lowest event number returned (inclusive); absent is every event the log holds. A page passes the last number it has plus one to fetch only the newer ones.
+      schema: { type: integer, minimum: 0 }
+    EventLimit:
+      name: limit
+      in: query
+      description: Only the newest `limit` of the matching events; absent is 100.
+      schema: { type: integer, minimum: 1, maximum: 1000 }
     Address:
       name: addr
       in: path
@@ -8631,7 +8663,20 @@ components:
         params:
           type: object
           additionalProperties: true
-          description: "Operation-specific parameters (category-dependent)."
+          description: |
+            Operation-specific parameters (category-dependent). A bounded
+            switch-on takes its duration as `seconds` (a positive number) in
+            the same call: switch `turn_on_for`, valve `open`, light
+            `turn_on` and `set_level` (the last two since
+            `cdp.bounded_on.v1`). The device writes the on-time together
+            with the switch-on. A transition is always `transition`, in
+            seconds: `0` or absent is an instant change, a negative or
+            non-numeric value is refused. A light's `turn_on` and
+            `set_level` take it on a switch-on and on the switch-off
+            `set_level {"state":"OFF"}` when the light's capabilities
+            report `transition`, and a light reporting false refuses it;
+            the sound player's `turn_on` takes its fade-in under the same
+            key (both since `cdp.transition.v1`).
         priority:
           type: string
           enum: [critical, high, default, low]
@@ -9595,6 +9640,22 @@ components:
         deployment: { $ref: "#/components/schemas/Deployment" }
         uptime: { type: string }
         started_at: { type: string, format: date-time }
+        instance_id:
+          type: string
+          pattern: "^[0-9a-f]{32}$"
+          description: |
+            Identity of this installation: created once on the first start
+            and kept in the daemon's database, so it survives restarts,
+            updates and a backup restored on new hardware. Two daemons
+            serving the same CCU have different ids — that, not the CCU
+            serial, is what tells them apart. The same value is announced
+            over mDNS as the TXT key `id` (ADR 0058). Absent when the daemon
+            runs without its database.
+
+            Not a secret and no proof of identity: anyone on the network can
+            read and repeat it. A client must not send credentials to a new
+            address because an announcement carries a known id.
+          example: 0123456789abcdef0123456789abcdef
         config_ui_url:
           type: string
           description: |
@@ -9641,18 +9702,28 @@ components:
           description: |
             Runtime feature set. Always-on entries:
             `rest.v1`, `ws.broadcasts.v1`, `errors.problem_details.v1`,
+            `projection.v1` (`GET /devices/{addr}/projection` answers how
+            a device stands on the north-bound planes),
             `central.features.v1` (each central reports what it offers in
             `features` on `GET /system/ccu`, and an operation a central
             does not offer answers the `feature_unavailable` problem),
             `south.openccu_lite.v1` (a central can be an openccu-lite
-            system: `system_type: openccu-lite`).
+            system: `system_type: openccu-lite`), `cdp.bounded_on.v1`
+            (every custom-data-point switch-on that can be bounded takes
+            the duration in the same command as `seconds`: switch
+            `turn_on_for`, valve `open`, light `turn_on` and `set_level`),
+            `cdp.transition.v1` (every transition is taken in seconds as
+            `transition`: a light whose capabilities report `transition`
+            on `turn_on` and `set_level`, the switch-off included — one
+            that reports false refuses it — and the sound player's
+            `turn_on`).
             Conditional entries surface only when configured:
             `mqtt.discovery.v1`, `mqtt.raw.v1`, `matter.bridge.v1`,
             `auth.oidc.v1`, `auth.ccu.v1`, `auth.basic.v1`,
             `auth.bearer.v1`, `auth.pairing.v1`, `auth.occulite_token.v1`,
             `auth.occulite_sso.v1`, `auth.ha_ingress.v1`,
             `webhook.inbound.v1`,
-            `diagrams.v1`, `admin.persistence.v1`, `history.v1`,
+            `admin.persistence.v1`, `measurements.v1`,
             `mcp.v1`, `mcp.write.v1`, `system.restart.supervised.v1`,
             `addon_self_update`, `alarm.v1` (the `/alarm` surface is
             mounted — absent, the alarm subsystem is off and every
@@ -9706,7 +9777,6 @@ components:
               - auth.pairing.v1
               - auth.occulite_token.v1
               - webhook.inbound.v1
-              - diagrams.v1
               - admin.persistence.v1
     DeploymentKind:
       type: string
@@ -10448,6 +10518,145 @@ components:
         page: { type: integer }
         per_page: { type: integer }
         total: { type: integer }
+    DeviceProjection:
+      type: object
+      required: [address, central, planes]
+      properties:
+        address: { type: string }
+        central: { type: string }
+        planes:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectionPlane" }
+
+    ProjectionPlaneState:
+      type: string
+      enum: [active, inactive]
+      description: Whether the plane runs for the device's central.
+
+    ProjectionVerdict:
+      type: string
+      enum: [published, folded, withheld]
+      description: |
+        `published`: the subject is an entry of its own on the plane.
+        `folded`: another entry carries it (`folded_into`). `withheld`:
+        the plane leaves it out for `reason`.
+
+    ProjectionPlane:
+      type: object
+      required: [plane, state, entries]
+      properties:
+        plane:
+          type: string
+          description: |
+            The plane's name. An open set that grows with the daemon;
+            today `matter`, `measurements`, `ha_discovery`, `mqtt_raw`
+            and `rest`.
+        state: { $ref: "#/components/schemas/ProjectionPlaneState" }
+        reason:
+          type: string
+          description: |
+            Set when `state` is `inactive`: `plane_disabled`, or on
+            `measurements` `central_excluded` when forwarding runs but
+            not for the device's central, or on `ha_discovery` and
+            `mqtt_raw` `central_not_ready` while the device's central is
+            still coming up.
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectionEntry" }
+
+    ProjectionEntry:
+      type: object
+      required: [channel, verdict]
+      properties:
+        channel:
+          type: integer
+          description: |
+            The channel number the subject belongs to; `-1` for a
+            subject of the device itself (the firmware-update entity).
+        kind:
+          type: string
+          description: |
+            The kind of subject in the plane's vocabulary. Absent for an
+            entry about the whole channel. On `matter`: `custom`,
+            `calculated`, `combined`, `generic`. Absent on
+            `measurements`, whose subjects are the data points of the
+            VALUES paramset. On `ha_discovery`: `data_point`,
+            `channel_entity` (the entity of the channel's custom data
+            point), `event`, `schedule`, `schedule_switch`, `combined`,
+            `update`, and `companion` (an entity announced alongside
+            another: the press button of a writable press, the notify
+            entity of a text display). On `mqtt_raw`: `device`,
+            `data_point`, `channel_state` (the aggregate state of the
+            channel's custom data point), `week_profile`, `schedule`,
+            `schedule_switch`, `combined`. Absent on `rest`, whose
+            subjects are the data points of the VALUES paramset.
+        key:
+          type: string
+          description: |
+            The subject's key in the plane's vocabulary. On `matter` the
+            parameter or data-point key, or the key of a consolidated
+            endpoint (`BUTTON`, `ELECTRICAL`). On `measurements` the
+            parameter. On `ha_discovery` the parameter of a data point
+            (`MASTER:<parameter>` for one of the MASTER paramset), the
+            key of a schedule switch, the kind of a combined entity, or
+            `<component>/<object_id>` of a companion. On `mqtt_raw` the
+            parameter of a data point (`MASTER:<parameter>` for the
+            MASTER paramset), `online`, `info`, `diagnostics` or
+            `update` for a topic of the device, `active_entries` or
+            `attributes` of a schedule, the key of a schedule switch, the
+            kind of a channel state or a combined data point. On `rest`
+            the parameter.
+        verdict: { $ref: "#/components/schemas/ProjectionVerdict" }
+        reason:
+          type: string
+          description: |
+            Set when `verdict` is `withheld`: one value of the plane's
+            closed set, named after the rule. On `matter`:
+            `channel_hidden`, `secondary_channel`, `usage_ignored`,
+            `consumed_by_parent`, `secondary_member`, `no_matter_mapping`,
+            `not_on_allow_list`, `measurements_not_included`. On
+            `measurements`: `not_numeric`, `pattern_excludes`,
+            `override_off`, and `no_live_value` (the daemon has observed
+            no value on the wire since it started; it passes with the
+            next one). On `ha_discovery`: `hidden_parameter`,
+            `not_visible`, `channel_hidden`, `part_of_channel_entity`,
+            `usage_no_create`, `usage_ignored`, `event_only_press`,
+            `event_suppressed_for_model`, `no_component`,
+            `no_scoped_identity`, `render_failed`, `no_entity`,
+            `no_custom_data_point`, `builder_declined`,
+            `device_not_released`. On `mqtt_raw`: `hidden_parameter`,
+            `not_visible`, `device_not_released`, and two that describe
+            now and pass by themselves: `not_observed_yet` (the topic is
+            written with a value of the channel, and none has arrived
+            since the daemon started) and `empty_value` (there is no
+            value to write). On `rest`: `channel_hidden` and
+            `hidden_parameter`, the two rules of the default data-point
+            list; `?include=all` on that list bypasses them. A later
+            daemon may state a reason this list does not have; show it
+            as it is.
+        folded_into:
+          type: string
+          description: |
+            Set when `verdict` is `folded`: the `key` of the entry that
+            carries the subject. On `matter` also `POWER_SOURCE`, the
+            power source cluster on one of the device's endpoints. On
+            `ha_discovery` `<component>/<object_id>` of the channel's
+            entity.
+        identity:
+          type: object
+          additionalProperties: { type: string }
+          description: |
+            Set for a published entry: what the subject is called on the
+            plane. On `matter`: `source_key`, and `endpoint_id` and
+            `device_type` once the bridge has assigned the endpoint. On
+            `measurements` the measurement and the tags the samples are
+            written under: `measurement`, `central`, `interface_id`,
+            `channel`, `parameter`. On `ha_discovery`: `component`,
+            `node_id`, `object_id`, and `discovery_topic` unless the
+            bridge publishes one document per device. On `mqtt_raw`:
+            `topic`, the retained topic the state is written to. On
+            `rest`: `path`, the data point's REST path.
+
     DeviceDetail:
       description: |
         A device summary plus its channel list. `firmware` and `availability`
@@ -11192,47 +11401,6 @@ components:
       required: [value]
       properties:
         value: {}
-    HistoryBucket:
-      type: object
-      required: [ts, avg, min, max, count]
-      description: >
-        One aggregated bucket of measurement history: the average,
-        minimum, maximum and sample count over the bucket's time span.
-
-
-        `avg` is time-weighted, not a plain mean of the samples. CCU
-        parameters arrive push-driven, so sample spacing is irregular by
-        construction and an unweighted mean reports a mostly-idle series as
-        several times its true average. `covered_ms` is the span that
-        weighting divides by; combine two buckets by weighting each `avg`
-        with its own `covered_ms`, never with `count`, because two samples an
-        hour apart and two a second apart are both `count: 2`.
-      properties:
-        ts:
-          type: string
-          format: date-time
-          description: Start of the bucket's time span (UTC).
-        avg:
-          type: number
-          description: Mean of the raw samples in this bucket.
-        min:
-          type: number
-          description: Minimum raw sample in this bucket.
-        max:
-          type: number
-          description: Maximum raw sample in this bucket.
-        count:
-          type: integer
-          format: int64
-          description: Number of raw samples aggregated into this bucket.
-        covered_ms:
-          type: integer
-          format: int64
-          description: >
-            The millisecond span `avg` is weighted over. Omitted (or zero)
-            when the span is unknown — a bucket built entirely from rows the
-            daemon recorded before it stored the span — in which case `avg`
-            is the plain mean over `count`.
     RecordingState:
       type: object
       required: [record, source]
@@ -11242,8 +11410,8 @@ components:
         record:
           type: boolean
           description: >
-            Whether this data point's live values are currently persisted
-            to measurement history.
+            Whether this data point's live values are currently
+            forwarded to the measurement target.
         source:
           type: string
           enum: [override, policy]
@@ -11264,112 +11432,6 @@ components:
         record:
           type: ["boolean", "null"]
           description: true/false forces recording on/off; null clears the override.
-    EnergyBucket:
-      type: object
-      required: [ts, consumed_wh, feed_in_wh, avg_power_w, peak_power_w, reset]
-      description: >
-        One bucketed point of a device's energy breakdown: the
-        cumulative-counter delta over the bucket (Wh) plus the
-        instantaneous POWER summary (W).
-      properties:
-        ts:
-          type: string
-          format: date-time
-          description: >
-            Start of the bucket's time span, serialised as an RFC3339
-            instant. For `group=day` / `group=month` this instant is the
-            local midnight respectively local first-of-month of the
-            daemon's timezone, so rendering it with a local date format
-            names the calendar day or month the bucket covers.
-        consumed_wh:
-          type: number
-          description: >
-            ENERGY_COUNTER delta over the bucket, in Wh. Never negative —
-            see `reset`.
-        feed_in_wh:
-          type: number
-          description: >
-            ENERGY_COUNTER_FEED_IN delta over the bucket, in Wh. Never
-            negative — see `reset`.
-        avg_power_w:
-          type: number
-          description: Mean POWER sample over the bucket, in W.
-        peak_power_w:
-          type: number
-          description: Maximum POWER sample over the bucket, in W.
-        reset:
-          type: boolean
-          description: >
-            True when a cumulative counter went backwards within this
-            bucket (meter reset on re-pair / firmware event); the
-            reported delta is the counter's value at the end of the
-            bucket (energy accumulated since the reset), not a negative
-            delta.
-    EnergyDevice:
-      type: object
-      required: [address, name, buckets, total_consumed_wh, total_feed_in_wh]
-      description: One device's bucketed energy breakdown plus its range totals.
-      properties:
-        address:
-          type: string
-          description: Bare device address.
-        name:
-          type: string
-          description: Device display name (falls back to the address when unknown).
-        buckets:
-          type: array
-          items: { $ref: "#/components/schemas/EnergyBucket" }
-        total_consumed_wh:
-          type: number
-          description: Sum of `consumed_wh` across every bucket, in Wh.
-        total_feed_in_wh:
-          type: number
-          description: Sum of `feed_in_wh` across every bucket, in Wh.
-    EnergyResponse:
-      type: object
-      required: [group, from, to, devices, total_consumed_wh, total_feed_in_wh]
-      description: >
-        `GET /api/v1/energy` response body: one bucketed breakdown per
-        device plus central totals, in Wh (the SPA divides by 1000 to
-        render kWh).
-      properties:
-        group:
-          type: string
-          enum: [hour, day, month]
-          description: Bucket granularity actually used.
-        from:
-          type: string
-          format: date-time
-          description: Inclusive lower bound of the requested range (UTC).
-        to:
-          type: string
-          format: date-time
-          description: Exclusive upper bound of the requested range (UTC).
-        devices:
-          type: array
-          items: { $ref: "#/components/schemas/EnergyDevice" }
-        total_consumed_wh:
-          type: number
-          description: Sum of every device's `total_consumed_wh`, in Wh.
-        total_feed_in_wh:
-          type: number
-          description: Sum of every device's `total_feed_in_wh`, in Wh.
-        price_per_kwh:
-          type: number
-          description: >
-            Configured electricity tariff
-            (`persistence.history.energy_price_per_kwh`), echoed so the
-            client can derive costs. Absent or zero means no tariff is
-            configured — a client must then show no cost at all rather
-            than a misleading 0. The daemon does not compute the amounts:
-            rounding and money formatting are locale decisions the client
-            owns.
-        currency:
-          type: string
-          description: >
-            Free-text label for amounts derived from `price_per_kwh`
-            (symbol or ISO code; defaults to the euro sign). Never used
-            for conversion. Only present together with a non-zero tariff.
     AuditEntry:
       type: object
       required: [id, timestamp, action]
@@ -11497,7 +11559,21 @@ components:
         quittable: { type: boolean }
         display_name:
           type: string
-          description: Human-readable translation of the message code.
+          description: |
+            Human-readable translation of the message code. For an enum
+            trigger datapoint it is the translation of `value_text` when
+            there is one (ERROR 7 reads "Sabotage" like in the CCU WebUI).
+        value:
+          type: string
+          description: |
+            The alarm's value as the CCU prints it ("7"). Omitted when the
+            CCU reports none.
+        value_text:
+          type: string
+          description: |
+            The value-list entry the CCU resolved `value` to for an enum
+            trigger datapoint ("SABOTAGE"). Omitted for every other
+            datapoint type and for a list slot without a name.
     SuppressedServiceMessage:
       type: object
       required: [channel]
@@ -13346,8 +13422,10 @@ components:
         defaults:
           type: object
           additionalProperties: { type: boolean }
-          description: Shipped visibility per profile name.
-          example: { standalone: true, embedded: false }
+          description: |
+            Shipped visibility per profile name, one entry for every
+            profile (`standalone`, `embedded`, `lite`).
+          example: { standalone: true, embedded: false, lite: true }
         floor:
           type: string
           description: |
@@ -13366,7 +13444,6 @@ components:
             stays in the vocabulary for clients of older daemons.
           enum:
             - matter
-            - history
             - feature:hub.programs
             - feature:hub.sysvars
             - feature:hub.inbox
@@ -13400,17 +13477,50 @@ components:
         multi_central_visible:
           type: boolean
           description: |
-            The embedded default of this surface flips back to visible
-            when the daemon serves more than one CCU. A Home Assistant
-            config entry addresses one CCU, so on a multi-CCU daemon HA
-            cannot own the config surface of the CCUs it has no entry
-            for — hiding these would leave their devices without an
-            editor anywhere. The `defaults` above already reflect the
+            The hidden default of this surface (in the `embedded` and
+            the `lite` profile) flips back to visible when the daemon
+            serves more than one CCU. A Home Assistant config entry
+            addresses one CCU and an openccu-lite box knows only itself,
+            so on a multi-CCU daemon neither can own the administration
+            of the other CCUs — hiding it would leave those CCUs without
+            a place to edit them. The `defaults` above already reflect the
             current fleet; this flag only explains why.
         ha_owns:
           type: boolean
           description: Home Assistant provides this surface itself.
+        box_owns:
+          type: boolean
+          description: |
+            The openccu-lite box provides this surface in its own shell —
+            the reason it is hidden by default in the `lite` profile.
 
+    UIOrigin:
+      type: string
+      enum: [direct, home_assistant, lite_shell]
+      description: |
+        The door a request came through, the per-request input of the
+        served surface profile. `lite_shell` is a request authenticated
+        by a session of the openccu-lite box shell that the box
+        confirmed; it is decided by that identity, not by the
+        `X-Occulite-Session` header alone, so it cannot be forged on
+        the directly-exposed port. A box API token and a daemon login
+        inside the shell frame read as `direct`.
+
+    EditorComponentManifest:
+      type: object
+      required: [module_url, hash, routes]
+      properties:
+        module_url:
+          type: string
+          description: Daemon path of the module; the file name carries the hash.
+          example: /app/component/editor-3f9a.js
+        hash:
+          type: string
+          description: Hex SHA-256 of the module's bytes.
+        routes:
+          type: array
+          description: Path prefixes below /api/v1 the editor calls.
+          items: { type: string }
     SurfacesResponse:
       type: object
       required:
@@ -13437,10 +13547,18 @@ components:
             header (the remote proxy add-on forwards it). With the
             default scope it is what selects `profile`, so the same
             configuration answers differently on the other door.
+            Equal to `origin == "home_assistant"`. A daemon older than
+            16.1.0 sends no `origin`; read this field there.
+        origin:
+          $ref: "#/components/schemas/UIOrigin"
         profile:
           type: string
-          enum: [standalone, embedded]
-          description: The profile served to this request.
+          enum: [standalone, embedded, lite]
+          description: |
+            The profile served to this request. `lite` is served to a
+            `lite_shell` request and hides what the box's own shell
+            provides; it needs no declaration. `embedded` with scope
+            `always` outranks it.
         profiles:
           type: object
           additionalProperties:
@@ -13705,6 +13823,15 @@ components:
           type: object
           additionalProperties: { type: integer }
         pairing_available: { type: boolean }
+        interfaces:
+          type: array
+          items: { type: string }
+          description: |
+            The interfaces the box offers (`BidCos-RF`, `HmIP-RF`, …),
+            sorted, as it names them without a credential. A client
+            proposes exactly these when the box is added. Absent on a box
+            that does not name them — the client then keeps its own
+            default; an empty list says the box offers none.
         hmip_key_mode: { $ref: "#/components/schemas/HMIPKeyMode" }
     HMIPKeyMode:
       type: object
@@ -13926,7 +14053,7 @@ components:
     ScheduleDeviceSummary:
       type: object
       required: [central, address, name, channel, kind]
-      description: One device that carries a week schedule.
+      description: One week schedule of a device.
       properties:
         central:
           type: string
@@ -14136,8 +14263,13 @@ components:
             week-profile sensor entity
             (`loom_week_profile_<device-addr>_week_profile`), built over the
             owning device address + parameter "WEEK_PROFILE" + prefix
-            "week_profile". Bit-identical to the client-synthesised key so the
-            client consumes it instead of recomputing it. Always present and
+            "week_profile". A climate schedule that shares its device with a
+            second schedule (HmIP-WGT, HmIP-WGTC) takes the prefix
+            "climate_week_profile" instead
+            (`loom_climate_week_profile_<device-addr>_week_profile`), as in the
+            reference stack, so the two schedules of one device never share a
+            key (since 15.6.0). Bit-identical to the client-synthesised key so
+            the client consumes it instead of recomputing it. Always present and
             non-empty (the serial-readiness gate guarantees the central-id slot).
         schedule_type: { type: string, enum: [default, climate] }
         min_temp: { type: number }
@@ -14216,35 +14348,6 @@ components:
             Owning interface (wire interface id). Populated only by the
             global overview (`GET /links`); empty on the per-device
             listing.
-    DiagramConfig:
-      type: object
-      required: [id, name, visibility, owner, config, created_at_ms, updated_at_ms]
-      description: A named multi-series diagram definition (SV03).
-      properties:
-        id: { type: string }
-        name: { type: string }
-        visibility: { type: string, enum: [private, shared] }
-        owner: { type: string, description: Owner subject. }
-        config:
-          type: object
-          description: >
-            SPA-owned diagram document (series list + default range). Opaque
-            to the daemon except a non-empty central per series.
-        created_at_ms: { type: integer, format: int64 }
-        updated_at_ms: { type: integer, format: int64 }
-    DiagramWriteRequest:
-      type: object
-      required: [name]
-      description: Create or update a diagram definition.
-      properties:
-        name: { type: string }
-        visibility:
-          type: string
-          enum: [private, shared]
-          description: Defaults to private.
-        config:
-          type: object
-          description: SPA-owned diagram document (series list + default range).
     AddLinkRequest:
       type: object
       required: [sender_address, receiver_address]
@@ -14464,6 +14567,18 @@ components:
         severity: { type: string }
         summary: { type: string }
         detail: { type: string }
+        type:
+          type: string
+          description: |
+            Incident type the entry was recorded under (`rpc_fault`,
+            `pingpong_mismatch`, …). Vocabulary: the IncidentType enum in
+            `assets/schemas/enums.json`.
+        interface_id:
+          type: string
+          description: |
+            Interface of an interface-scoped incident, the same id
+            `GET /interfaces` reports as `id`. Absent for a central-level
+            incident.
 
     InboxDevice:
       type: object
@@ -14631,7 +14746,15 @@ components:
         current_version: { type: string }
         latest_version:
           type: string
-          description: Newest published release; empty before the first successful check.
+          description: >-
+            Newest published release on the configured channel
+            (`addon_update.include_prereleases`); empty before the first
+            successful check.
+        latest_prerelease:
+          type: boolean
+          description: >-
+            `latest_version` is a pre-release (a `-beta.N` tag). Only set
+            when the operator opted into pre-releases.
         update_available: { type: boolean }
         release_url:
           type: string
@@ -14649,6 +14772,23 @@ components:
         error:
           type: string
           description: Failure detail while state is `failed`.
+        error_code: { $ref: "#/components/schemas/AddonUpdateErrorCode" }
+        retry_at:
+          type: string
+          format: date-time
+          description: >-
+            When a check can succeed again; set with `error_code`
+            `rate_limited` when GitHub named a time.
+
+    AddonUpdateErrorCode:
+      type: string
+      enum: [rate_limited]
+      description: >-
+        Classifies a failed add-on update check a client can explain
+        without parsing `error`; absent for every failure without a code
+        of its own. `rate_limited`: GitHub refused the release check
+        because the request limit of the daemon's address is used up. It
+        clears by itself at `retry_at`; it is not a fault.
 
     Area:
       type: object
@@ -15749,13 +15889,6 @@ components:
         candidates:
           type: array
           items: { $ref: "#/components/schemas/ReplaceCandidate" }
-    ListDiagramsResponse:
-      type: object
-      required: [diagrams]
-      properties:
-        diagrams:
-          type: array
-          items: { $ref: "#/components/schemas/DiagramConfig" }
     ListGroupTypesResponse:
       type: object
       required: [types]
@@ -15925,9 +16058,9 @@ components:
         is_logged:
           type: boolean
           description: >
-            Toggle the archive flag (CCU DPArchive) that records
-            value changes to the measurement history. Omit to leave
-            it unchanged.
+            Toggle the archive flag (CCU DPArchive) that makes the CCU
+            record value changes in its own archive. Omit to leave it
+            unchanged.
         channel_address:
           type: string
           description: >
@@ -16179,11 +16312,11 @@ components:
         name:
           type: string
           description: Stable identifier, `<subsystem>.<what>`.
-          example: history.recorder
+          example: measurements.forwarder
         collaborator:
           type: string
           description: The thing that was attached.
-          example: "*history.Recorder"
+          example: "*measurements.Forwarder"
         phase:
           type: string
           description: >
@@ -16213,7 +16346,7 @@ components:
             about itself — the collaborator IS wired, so nothing
             else about the daemon looks wrong.
           items: { type: string }
-    # The node page family's schemas (go-fabric-ui contract v0.1.1,
+    # The node page family's schemas (go-fabric-ui contract v0.9.0,
     # components.schemas): see the /node/* paths above. `Problem` is
     # loom's own; the contract's `Warning` is `NodeWarning` here because
     # loom already carries a `Warning`.
@@ -16235,11 +16368,26 @@ components:
         window_kind: { $ref: "#/components/schemas/NodeWindowKind" }
         window_deadline: { type: string, format: date-time, description: "When the open window's timer closes it, on the node's clock; absent while no window is open." }
         exposure: { type: boolean, description: Whether the host serves a selection. }
+        exposure_reason: { type: string, description: "Why the host serves no selection, in the host's language; absent when it serves one or gives no reason (0.5.0)." }
         csrf_token: { type: string, description: The admin token of token mode; absent when the host decides admin rights. }
+        admin: { type: boolean, description: "Whether the host's admin check admits this request (0.6.0); present when the host decides admin rights, absent in token mode, where `csrf_token` says it." }
+        node_registry: { type: boolean, description: "Whether the host keeps a node registry (0.6.0): `POST /nodes` creates a node and a `managed` node can be renamed and deleted. Absent without one." }
+        config: { $ref: "#/components/schemas/NodeConfig" }
+        attestation_error: { type: string, description: "Why the node's attestation files did not load (0.7.0, go-fabric `Node.AttestationError`): the node runs on the test chain and refuses every commissioning until the files are fixed and a new node is built. Absent when the files loaded, named nothing, or without a node." }
+        boot_reason:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: "The GeneralDiagnostics BootReason the node was built with (0.7.0, go-fabric `Node.BootReason`; BootReasonEnum: 0 Unspecified, 1 PowerOnReboot, 2 BrownOutReset, 3 SoftwareWatchdogReset, 4 HardwareWatchdogReset, 5 SoftwareUpdateCompleted, 6 SoftwareReset). Absent without a node."
+        erase: { type: boolean, description: "Whether the host wires an erase of this node (0.7.0, `Options.Erase` or `NodeEntry.Erase`): `POST /node/maintenance/erase` is served. Absent without one." }
         warnings:
           type: array
           description: The host's findings about its own configuration; absent when the host reports none (no Options.Warnings), empty when it finds nothing.
           items: { $ref: "#/components/schemas/NodeWarning" }
+        counters:
+          type: array
+          description: "The host's own counters a scraper reads beside the health (0.8.0), e.g. `discards`, commands the host answered with success and acted on nothing; absent when the host reports none (no Options.Counters), empty when it has none to report. Host-wide: every node's status carries the same list."
+          items: { $ref: "#/components/schemas/Counter" }
         surface:
           type: object
           description: The policies the node's served surface is composed under (go-fabric node.Node.Surface) and the counts that tell whether to look further; absent without a node.
@@ -16251,7 +16399,7 @@ components:
             extensions: { type: array, items: { type: string }, description: "The enabled ahead-of-matter.js register IDs, sorted." }
             assembled: { type: boolean, description: "The report reads the assembled topology (after the first assembly)." }
             withheld_count: { type: integer, description: "Elements the level policy withheld an endpoint for." }
-            warning_count: { type: integer, description: "Profile warnings: Keep decisions of a profile policy with a warning reason." }
+            warning_count: { type: integer, description: "Warn decisions: elements a policy keeps and flags (surface.Warn)." }
             changed_count: { type: integer, description: "Surface changes announced in this process (ConfigurationVersion raised)." }
     NodeWarning:
       type: object
@@ -16260,6 +16408,14 @@ components:
         code: { type: string, description: "The kind of finding, stable across host releases." }
         message: { type: string, description: "What is wrong, in the host's language." }
         since: { type: string, format: date-time, description: "When the host first saw it; absent when unknown." }
+    Counter:
+      type: object
+      description: "One of the host's counters (0.8.0, Options.Counters)."
+      required: [code, value, message]
+      properties:
+        code: { type: string, description: "The counter's stable machine name, e.g. discards." }
+        value: { type: integer, minimum: 0, description: The count since the host started. }
+        message: { type: string, description: "What the counter counts, in one line in the host's language." }
     Fabric:
       type: object
       required: [fabric_index, fabric_id, fabric_id_hex, node_id, node_id_hex, vendor_id, vendor_name, compressed_id, root_public_key]
@@ -16337,6 +16493,26 @@ components:
         endpoints:
           type: array
           items: { $ref: "#/components/schemas/Endpoint" }
+        structural:
+          type: array
+          description: The root and the Aggregator — the endpoints `endpoints` does not list — root first, then by number (0.5.0).
+          items: { $ref: "#/components/schemas/StructuralEndpoint" }
+    StructuralEndpoint:
+      type: object
+      description: An endpoint of the node's endpoint tree no bridged device declares (go-fabric `Node.Endpoints`, 0.5.0).
+      required: [endpoint_id, name, device_types, parts]
+      properties:
+        endpoint_id: { type: integer }
+        parent_endpoint_id: { type: integer, description: The endpoint whose parts list names this one; absent for the root and top-level endpoints. }
+        name: { type: string, description: "The endpoint's node label; its first device type's name without one." }
+        device_types:
+          type: array
+          description: The Descriptor's DeviceTypeList in its order.
+          items: { $ref: "#/components/schemas/EndpointDeviceType" }
+        parts:
+          type: array
+          description: The endpoint numbers of its direct children — the endpoints whose parent it is, not every descendant its PartsList names.
+          items: { type: integer }
     Session:
       type: object
       required: [session_id, fabric_index, peer_node_id, peer_node_id_hex, local_node_id, local_node_id_hex, is_pase, subscriptions, last_activity, last_peer_activity, idle_seconds, peer_idle_seconds]
@@ -16353,6 +16529,10 @@ components:
         last_peer_activity: { type: string, format: date-time }
         idle_seconds: { type: integer }
         peer_idle_seconds: { type: integer }
+        created_at: { type: string, format: date-time, description: "When the session was established (0.9.0); the controller's sessions only, absent on the node." }
+        resumed: { type: boolean, description: "The session came from a CASE resumption (0.9.0); the controller's sessions only." }
+        transport: { $ref: "#/components/schemas/NodeSessionTransport" }
+        peer_lost: { type: boolean, description: "The session was given up because the peer is gone or closed it, still listed while it closes (0.9.0); the controller's sessions only." }
     Occupancy:
       type: object
       required: [live, reserved, capacity, free]
@@ -16369,6 +16549,89 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Session" }
         occupancy: { $ref: "#/components/schemas/Occupancy" }
+        parameters: { $ref: "#/components/schemas/SessionParameters" }
+    SessionParameters:
+      type: object
+      description: "The session parameters the node reports to every PASE and CASE peer (0.7.0, go-fabric `Node.SessionParameters`, the SessionParameters structure of PBKDFParamResponse and Sigma2). A zero value is not stated: the peer falls back to the specification's default."
+      required: [idle_interval_ms, active_interval_ms, active_threshold_ms, data_model_revision, interaction_model_revision, specification_version_hex, max_paths_per_invoke, supported_transports, tcp]
+      properties:
+        idle_interval_ms: { type: integer, description: SESSION_IDLE_INTERVAL. }
+        active_interval_ms: { type: integer, description: SESSION_ACTIVE_INTERVAL. }
+        active_threshold_ms: { type: integer, description: SESSION_ACTIVE_THRESHOLD. }
+        data_model_revision: { type: integer }
+        interaction_model_revision: { type: integer }
+        specification_version_hex: { type: string, description: "SPECIFICATION_VERSION as 8 uppercase hex digits, e.g. \"01050000\"." }
+        max_paths_per_invoke: { type: integer }
+        supported_transports: { type: integer, description: "The SUPPORTED_TRANSPORTS bitmap, the transports beside MRP over UDP." }
+        tcp: { type: boolean, description: The bitmap names TCP in either role. }
+        max_tcp_message_size: { type: integer, description: MAX_TCP_MESSAGE_SIZE in bytes; present with tcp. }
+    TopologyGraph:
+      type: object
+      description: A family's topology as nodes and edges; the renderer needs no knowledge per kind.
+      required: [as_of, family, nodes, edges]
+      properties:
+        as_of: { type: string, format: date-time, description: "When the graph was read, on the node's or the controller's clock." }
+        family: { $ref: "#/components/schemas/NodeTopologyFamily" }
+        nodes:
+          type: array
+          items: { $ref: "#/components/schemas/TopologyNode" }
+        edges:
+          type: array
+          items: { $ref: "#/components/schemas/TopologyEdge" }
+    TopologyNode:
+      type: object
+      description: |
+        One node of the graph. `details` is the ordered list a page shows
+        for it; the typed fields are the ones a page links or colours by,
+        each present only for the kinds it belongs to.
+      required: [id, kind, label, state, details]
+      properties:
+        id: { type: string, description: "Unique in the graph: `node`, `ep:<n>`, `fabric:<index>`, `session:<id>`, `peer:<node_id_hex>`." }
+        kind: { $ref: "#/components/schemas/NodeTopologyNodeKind" }
+        label: { type: string }
+        state: { $ref: "#/components/schemas/NodeTopologyNodeState" }
+        ref: { $ref: "#/components/schemas/TopologyRef" }
+        details:
+          type: array
+          items: { $ref: "#/components/schemas/TopologyDetail" }
+        endpoint: { type: integer, description: "aggregator, device, part: the endpoint number." }
+        fabric_index: { type: integer, description: "fabric, session: the fabric index; 0 for a PASE session." }
+        session_id: { type: integer, description: "session: the local session id." }
+        node_id_hex: { type: string, description: "fabric: our node id on it; session: the peer's; peer: the node's." }
+        reachable: { type: boolean, description: "device, part: Reachable as a controller reads it." }
+        is_pase: { type: boolean, description: "session: a commissioning (PASE) session." }
+        subscriptions: { type: integer, description: "session: the subscriptions riding on it." }
+        role: { type: string, description: "peer: its Thread routing role or network kind." }
+        rloc16: { type: integer, description: "peer: its Thread RLOC16." }
+        ssid: { type: string, description: "wifi_ap, peer: the Wi-Fi network." }
+        bssid: { type: string, description: "wifi_ap, peer: the access point's BSSID." }
+    TopologyEdge:
+      type: object
+      required: [source, target, kind]
+      properties:
+        source: { type: string, description: A node id. }
+        target: { type: string, description: A node id. }
+        kind: { $ref: "#/components/schemas/NodeTopologyEdgeKind" }
+        strength: { $ref: "#/components/schemas/NodeTopologyEdgeStrength" }
+        lqi: { type: integer, description: "link: Thread link quality indicator." }
+        rssi: { type: integer, description: "link: received signal strength, dBm." }
+        label: { type: string }
+    TopologyRef:
+      type: object
+      description: |
+        The page that already lists the node and the id it lists it by:
+        `endpoints` (endpoint number), `fabrics` (fabric index),
+        `diagnostics` (session id), `controller_node` (`node_id_hex`).
+      required: [page, id]
+      properties:
+        page: { type: string }
+        id: { type: string }
+    TopologyDetail:
+      type: object
+      required: [key, value]
+      properties:
+        key: { type: string, description: "A stable key a page translates (`device_type`, `clusters`, …)." }
+        value: { type: string }
     MdnsService:
       type: object
       required: [service_type, instance_name, host_name, port, addresses, subtypes, txt]
@@ -16435,6 +16698,42 @@ components:
         severity: { $ref: "#/components/schemas/NodeDiagnosticEventSeverity" }
         message: { type: string }
         detail: { type: object, additionalProperties: { type: string } }
+    HealthSampleEvent:
+      type: object
+      description: The payload of health_sample (0.5.0) — one verdict of the node's health probe.
+      required: [healthy, note, sampled_at]
+      properties:
+        healthy: { type: boolean }
+        note: { type: string, description: "The probe's stable English note." }
+        sampled_at: { type: string, format: date-time, description: "When the handler received the verdict, on the node's clock." }
+    NodeConfig:
+      type: object
+      description: |
+        The node's configuration as the host shows it, read-only (0.6.0);
+        absent when the host supplies none. One shape for every node. It
+        never carries the passcode, which stays with the admin route
+        `GET /node/pairing`. Of a `registry` node only the label is
+        editable (`PUT /nodes/{node}/label`); the host allocated the rest.
+        A `configuration` node is set in the host's configuration and
+        nothing of it is editable in the page.
+      required: [source, listen, discriminator, vendor_id, product_id]
+      properties:
+        source: { $ref: "#/components/schemas/NodeConfigSource" }
+        source_note: { type: string, description: "The host's wording of where a configured node's values come from (\"add-on options\", \"the --bridge-* flags\"); absent when it gives none." }
+        label: { type: string, description: The node's configured name; absent when it has none. }
+        listen: { type: string, description: "The address the node listens on, as configured (\"[::]:5540\")." }
+        discriminator: { type: integer, minimum: 0, maximum: 4095 }
+        vendor_id: { type: integer, minimum: 0, maximum: 65535 }
+        vendor_name: { type: string }
+        product_id: { type: integer, minimum: 0, maximum: 65535 }
+        product_name: { type: string }
+        store: { type: string, description: Where the node keeps its state (a file name); absent when the host does not say. }
+    NodesChangedEvent:
+      type: object
+      description: The payload of nodes_changed (0.6.0) — the keys of the nodes created, renamed or deleted.
+      required: [keys]
+      properties:
+        keys: { type: array, items: { type: string } }
     DiagnosticEventList:
       type: object
       required: [events]
@@ -16532,6 +16831,11 @@ components:
       required: [confirm]
       properties:
         confirm: { type: string, const: remove-all-fabrics }
+    EraseRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm: { type: string, const: erase-node }
     FabricEvent:
       type: object
       required: [fabric_index]
@@ -16545,11 +16849,324 @@ components:
       properties:
         discriminator: { type: integer }
         duration_seconds: { type: integer }
+    SessionEvent:
+      description: The payload of session_opened, session_closed and subscriptions_changed — the session as `/node/sessions` lists it, with its new subscription count.
+      type: object
+      required: [session_id, fabric_index, peer_node_id, peer_node_id_hex, local_node_id, local_node_id_hex, is_pase, subscriptions, last_activity, last_peer_activity, idle_seconds, peer_idle_seconds]
+      properties:
+        session_id: { type: integer }
+        fabric_index: { type: integer }
+        peer_node_id: { type: integer, description: Informational; use peer_node_id_hex. }
+        peer_node_id_hex: { type: string }
+        local_node_id: { type: integer, description: Informational; use local_node_id_hex. }
+        local_node_id_hex: { type: string }
+        is_pase: { type: boolean }
+        subscriptions: { type: integer }
+        last_activity: { type: string, format: date-time }
+        last_peer_activity: { type: string, format: date-time }
+        idle_seconds: { type: integer }
+        peer_idle_seconds: { type: integer }
     ExposureEvent:
       type: object
       required: [keys]
       properties:
         keys: { type: array, items: { type: string } }
+    SurfaceChangedEvent:
+      type: object
+      required: [endpoints]
+      properties:
+        endpoints:
+          type: array
+          items: { type: string }
+          description: The key of the endpoint whose served surface an assembly changed (go-fabric node.Observers.OnSurfaceChanged, one endpoint per event); "" is the root endpoint.
+    AttributeChangedEvent:
+      type: object
+      description: The payload of attribute_changed (0.4.1) — go-fabric node.Observers.OnAttributeChanged, one cluster of one endpoint per event, ids only.
+      required: [endpoint, cluster_hex, attributes]
+      properties:
+        endpoint: { type: integer }
+        cluster_hex: { type: string, description: 'The cluster id as `id_hex` elsewhere: "0x" and at least four uppercase hex digits.' }
+        attributes:
+          type: array
+          description: The ids of the attributes that changed, ascending, in hex.
+          items: { type: string }
+    SurfaceReport:
+      type: object
+      description: go-fabric surface.Report (surface/policy.go wireReport).
+      required: [assembled, changed, decisions, effective, extensions, level, level_origin, policies, profiles, withheld]
+      properties:
+        assembled: { type: boolean, description: 'The report reads the assembled topology.' }
+        changed:
+          type: array
+          description: The surface changes announced in this process, oldest first (the node keeps the last hundred).
+          items: { $ref: "#/components/schemas/SurfaceChange" }
+        decisions:
+          type: array
+          description: Every decision of the policy chain, in its order.
+          items: { $ref: "#/components/schemas/SurfaceDecision" }
+        effective: { $ref: "#/components/schemas/SurfaceEffective" }
+        extensions: { type: array, items: { type: string }, description: 'The enabled ahead-of-matter.js register IDs, sorted.' }
+        level: { type: string, description: 'The specification level the surface is composed at.' }
+        level_origin: { type: string, description: '"explicit", "profile <name>[, <name>…]" or "pin".' }
+        policies: { type: string, description: 'The digest of the policies, 64 hex digits.' }
+        profiles: { type: array, items: { type: string }, description: 'The selected controller profiles, sorted.' }
+        withheld:
+          type: array
+          description: The elements the level policy withheld an endpoint for.
+          items: { $ref: "#/components/schemas/SurfaceElement" }
+    SurfaceEffective:
+      type: object
+      description: go-fabric surface.Surface (surface/surface.go wireSurface).
+      required: [endpoints, root]
+      properties:
+        endpoints:
+          type: array
+          description: The endpoints other than the root, by key.
+          items: { $ref: "#/components/schemas/SurfaceEndpoint" }
+        root: { $ref: "#/components/schemas/SurfaceEndpoint" }
+    SurfaceEndpoint:
+      type: object
+      required: [clusters, deviceTypes, key]
+      properties:
+        clusters:
+          type: array
+          description: The server clusters, by id.
+          items: { $ref: "#/components/schemas/SurfaceCluster" }
+        deviceTypes:
+          type: array
+          description: The device types in the Descriptor's order.
+          items: { $ref: "#/components/schemas/SurfaceDeviceType" }
+        key: { type: string, description: 'The endpoint''s rendered stable key; "" for the root, "aggregator" for the Aggregator, "@<number>" for an endpoint without a key.' }
+        number: { type: integer, description: 'The endpoint number; absent until the endpoint is assembled, and for the root.' }
+    SurfaceDeviceType:
+      type: object
+      required: [id, revision]
+      properties:
+        id: { type: string, description: 'Device type id, "0x" and four hex digits.' }
+        revision: { type: integer }
+    SurfaceCluster:
+      type: object
+      required: [accepted, attributes, events, featureMap, generated, id, revision]
+      properties:
+        accepted: { type: array, items: { type: string }, description: 'AcceptedCommandList, sorted.' }
+        attributes: { type: array, items: { type: string }, description: 'AttributeList, sorted.' }
+        events: { type: array, items: { type: string }, description: 'The events served, sorted.' }
+        featureMap: { type: string }
+        generated: { type: array, items: { type: string }, description: 'GeneratedCommandList, sorted.' }
+        id: { type: string }
+        revision: { type: integer, description: 'ClusterRevision.' }
+    SurfaceElement:
+      type: object
+      description: One candidate element of an endpoint's surface (surface.Element).
+      required: [cluster, endpoint, id, kind, mandatory, origin, reference]
+      properties:
+        cluster: { type: string, description: 'The cluster id; "0x00000000" for a device type.' }
+        endpoint: { type: string, description: 'The endpoint''s key; "" for the root.' }
+        id: { type: string, description: 'The device type id, the cluster id, the feature''s one-bit mask, or the attribute, command or event id.' }
+        kind: { $ref: "#/components/schemas/NodeSurfaceElementKind" }
+        mandatory: { type: boolean, description: 'Removing the element would make the composition invalid at the pin.' }
+        origin: { $ref: "#/components/schemas/NodeSurfaceElementOrigin" }
+        reference: { type: string, description: 'The ahead-of-matter.js register ID it is served against; "" for the matter.js baseline.' }
+    SurfaceDecision:
+      type: object
+      description: One policy's judgement of one element (surface.Decision).
+      required: [cluster, endpoint, id, kind, mandatory, origin, policy, reason, reference, verdict]
+      properties:
+        cluster: { type: string }
+        endpoint: { type: string }
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/NodeSurfaceElementKind" }
+        mandatory: { type: boolean }
+        origin: { $ref: "#/components/schemas/NodeSurfaceElementOrigin" }
+        policy: { type: string, description: 'The policy''s name: "level", "reference", "profile:<name>" or a host''s own.' }
+        reason: { type: string, description: 'Empty for a silent keep.' }
+        reference: { type: string }
+        verdict: { $ref: "#/components/schemas/NodeSurfaceVerdict" }
+    SurfaceChange:
+      type: object
+      description: One announced change of an endpoint's served surface (surface.SurfaceChange).
+      required: [after, at, before, changes, endpoint]
+      properties:
+        after: { type: string, description: 'The new surface''s digest, 64 hex digits.' }
+        at: { type: string, format: date-time, description: 'When the node raised the ConfigurationVersion.' }
+        before: { type: string, description: 'The digest last persisted for the endpoint.' }
+        changes:
+          type: array
+          description: The differences; empty when only the earlier digest was available.
+          items: { $ref: "#/components/schemas/SurfaceElementChange" }
+        endpoint: { type: string, description: 'The endpoint''s key.' }
+    SurfaceElementChange:
+      type: object
+      description: One element-level difference (surface.Change).
+      required: [after, before, cluster, endpoint, id, kind]
+      properties:
+        after: { type: string, description: 'The element''s state after ("revision 6", "set", "served", "accepted", "generated"); "" when it is gone.' }
+        before: { type: string, description: 'The state before; "" when it is new.' }
+        cluster: { type: string }
+        endpoint: { type: string }
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/NodeSurfaceElementKind" }
+    EndpointDetail:
+      type: object
+      description: |
+        One endpoint with its inventory (contract 0.4.0), one shape for both
+        families. The controller family fills it from its image of the node:
+        `conformance`, never `scope` or `decisions`; its `clusters` carry no
+        attribute values. The node family (0.4.1) fills it from what the node
+        serves: `scope` for a bridged endpoint, `decisions`, never
+        `conformance`; its `clusters` carry the values.
+      required: [endpoint_id, name, reachable, device_types, tags, labels, parts, clusters]
+      properties:
+        endpoint_id: { type: integer }
+        parent_endpoint_id: { type: integer, description: The endpoint whose parts list names this one; absent for the root and top-level endpoints. }
+        name: { type: string, description: "The device type's name as the controller names the endpoint." }
+        reachable: { type: boolean, description: BridgedDeviceBasicInformation Reachable where the endpoint serves it; true elsewhere. }
+        device_types:
+          type: array
+          description: The Descriptor's DeviceTypeList in its order.
+          items: { $ref: "#/components/schemas/EndpointDeviceType" }
+        scope: { type: string, description: The snapshot scope a node-side endpoint was assembled from; absent on the controller side. }
+        tags:
+          type: array
+          description: The Descriptor's TagList; empty when the endpoint serves none.
+          items: { $ref: "#/components/schemas/SemanticTag" }
+        labels:
+          type: array
+          description: The FixedLabel LabelList, then the UserLabel LabelList.
+          items: { $ref: "#/components/schemas/EndpointLabel" }
+        parts:
+          type: array
+          description: The endpoint numbers of its direct children — the endpoints whose parent it is, not every descendant its PartsList names.
+          items: { type: integer }
+        clusters:
+          type: array
+          description: The server clusters in id order.
+          items: { $ref: "#/components/schemas/ClusterDetail" }
+        conformance: { $ref: "#/components/schemas/ConformanceVerdict" }
+        decisions:
+          type: array
+          description: The node's surface decisions on this endpoint (0.4.1, node family only), as `GET /node/surface` lists them.
+          items: { $ref: "#/components/schemas/SurfaceDecision" }
+    EndpointDeviceType:
+      type: object
+      required: [id, id_hex, revision]
+      properties:
+        id: { type: integer }
+        id_hex: { type: string }
+        name: { type: string, description: The device type's name; absent for one the schema does not know. }
+        revision: { type: integer }
+    SemanticTag:
+      type: object
+      required: [namespace, tag]
+      properties:
+        namespace: { type: integer }
+        tag: { type: integer }
+        mfg_code: { type: integer, description: The manufacturer code of a manufacturer-specific namespace; absent when null. }
+        label: { type: string }
+    EndpointLabel:
+      type: object
+      required: [label, value, user]
+      properties:
+        label: { type: string }
+        value: { type: string }
+        user: { type: boolean, description: An entry of UserLabel; FixedLabel's otherwise. }
+    ConformanceVerdict:
+      type: object
+      description: The device type conformance of the endpoint as the controller judges its image.
+      required: [status, violations, unjudged]
+      properties:
+        status: { $ref: "#/components/schemas/NodeConformanceStatus" }
+        violations:
+          type: array
+          items: { $ref: "#/components/schemas/ConformanceViolation" }
+        unjudged:
+          type: array
+          description: The server clusters the ServerList names whose inside was not judged.
+          items: { $ref: "#/components/schemas/ClusterElement" }
+    ConformanceViolation:
+      type: object
+      required: [device_type, requirement, kind, detail]
+      properties:
+        device_type: { type: string }
+        device_type_id: { type: integer, description: Absent for Base and where the violation names no device type. }
+        requirement: { type: string }
+        kind: { type: string }
+        detail: { type: string }
+    ClusterDetail:
+      type: object
+      description: One server cluster with its inventory (contract 0.4.0).
+      required: [id, id_hex, revision, feature_map_hex, features, attributes, accepted, generated, events]
+      properties:
+        id: { type: integer }
+        id_hex: { type: string }
+        name: { type: string, description: The cluster's name; absent for one no definition names. }
+        revision: { type: integer }
+        feature_map_hex: { type: string }
+        features:
+          type: array
+          description: The features the feature map sets, in bit order.
+          items: { $ref: "#/components/schemas/ClusterFeature" }
+        data_version: { type: integer, description: The cluster's DataVersion; absent while unknown. }
+        attributes:
+          type: array
+          description: The AttributeList in id order.
+          items: { $ref: "#/components/schemas/ClusterAttribute" }
+        accepted:
+          type: array
+          description: The AcceptedCommandList.
+          items: { $ref: "#/components/schemas/ClusterElement" }
+        generated:
+          type: array
+          description: The GeneratedCommandList.
+          items: { $ref: "#/components/schemas/ClusterElement" }
+        events:
+          type: array
+          description: The EventList where the peer reports one.
+          items: { $ref: "#/components/schemas/ClusterElement" }
+    ClusterFeature:
+      type: object
+      required: [code, bit]
+      properties:
+        code: { type: string, description: 'The short name ("LT").' }
+        title: { type: string, description: 'The long name ("Lighting"); absent where no definition names it.' }
+        bit: { type: integer }
+    ClusterAttribute:
+      type: object
+      required: [id, id_hex]
+      properties:
+        id: { type: integer }
+        id_hex: { type: string }
+        name: { type: string }
+        value: { description: The attribute's value as JSON by field name; absent in a structure-only answer or while unknown., x-go-type: json.RawMessage }
+        status: { type: integer, description: "The IM status the attribute was answered with; absent on success. The node family sets it, without a `value`, for an attribute its read path failed (0.5.0)." }
+    ClusterElement:
+      type: object
+      required: [id, id_hex]
+      properties:
+        id: { type: integer }
+        id_hex: { type: string }
+        name: { type: string }
+    EventRecord:
+      type: object
+      description: One Matter event (0.4.1), one shape for both families — an event the node served, or one the controller received from a node.
+      required: [number, priority, endpoint, cluster_hex, event_hex]
+      properties:
+        number: { type: integer, description: The node-wide event number (Matter Core §7.14.2.1). }
+        priority: { $ref: "#/components/schemas/NodeEventPriority" }
+        endpoint: { type: integer }
+        cluster_hex: { type: string }
+        event_hex: { type: string }
+        name: { type: string, description: The event's name in go-fabric's schema; absent for one it does not name. }
+        epoch_ms: { type: integer, description: The event's epoch timestamp in milliseconds; absent when the event carries a system timestamp only. }
+        data: { description: The event's data as JSON by field name; absent without data or when it cannot be rendered., x-go-type: json.RawMessage }
+    EventRecordList:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          description: Oldest first.
+          items: { $ref: "#/components/schemas/EventRecord" }
     # The node contract's inline enums, named here because a generated
     # client numbers anonymous enums by document position
     # (TestOpenAPIInlineEnumsAreFrozen); the values are the contract's.
@@ -16562,7 +17179,12 @@ components:
       enum: [error, warning]
     NodeDiagnosticEventKind:
       type: string
-      enum: [pairing, session, discovery]
+      description: "pairing, session and discovery on both families; reachability, icd, ota and camera on the controller's trace (0.9.0)."
+      enum: [pairing, session, discovery, reachability, icd, ota, camera]
+    NodeSessionTransport:
+      type: string
+      description: "The session's carrier (0.9.0); the controller's sessions only, absent when unknown."
+      enum: [udp, tcp, ble]
     NodeDiagnosticEventSeverity:
       type: string
       enum: [info, warning, error]
@@ -16574,6 +17196,44 @@ components:
       type: string
       description: Which window is open — the node's own on its configured credentials, a basic one on fresh credentials, an administrator's enhanced one; absent without a node.
       enum: [none, own, basic, enhanced]
+    NodeSurfaceElementKind:
+      type: string
+      description: The kind of a surface element (go-fabric surface.Kind).
+      enum: [device-type, cluster, feature, attribute, command, event]
+    NodeSurfaceElementOrigin:
+      type: string
+      description: Why a surface element is a candidate (go-fabric surface.Origin).
+      enum: [cluster-mandatory, device-type, host-declared, kit-default]
+    NodeSurfaceVerdict:
+      type: string
+      description: A policy's verdict on a surface element (go-fabric surface.Verdict), in ascending precedence.
+      enum: [keep, warn, remove, refuse]
+    NodeTopologyFamily:
+      type: string
+      enum: [node, controller]
+    NodeTopologyNodeKind:
+      type: string
+      enum: [node, aggregator, device, part, fabric, session, peer, thread_router, thread_end_device, wifi_ap, ethernet, border_router]
+    NodeTopologyNodeState:
+      type: string
+      enum: [ok, unreachable, idle, unknown]
+    NodeTopologyEdgeKind:
+      type: string
+      enum: [contains, session, link]
+    NodeTopologyEdgeStrength:
+      type: string
+      description: "link: the link's quality class; `none` is a link observed dead (LQI 0), `unknown` one without a measurement."
+      enum: [strong, medium, weak, none, unknown]
+    NodeConfigSource:
+      type: string
+      description: "Where the values come from: the host's configuration, or its node registry."
+      enum: [configuration, registry]
+    NodeConformanceStatus:
+      type: string
+      enum: [unknown, incomplete, clean, violated]
+    NodeEventPriority:
+      type: string
+      enum: [debug, info, critical]
     NodeEndpointsChangedPayload:
       type: object
       description: >-
