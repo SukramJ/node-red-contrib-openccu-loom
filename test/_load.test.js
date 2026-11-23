@@ -22,7 +22,6 @@ const apiNode = require("../nodes/openccu-loom-api.js");
 const alarmNode = require("../nodes/openccu-loom-alarm.js");
 const alarmAdminNode = require("../nodes/openccu-loom-alarm-admin.js");
 const groupsNode = require("../nodes/openccu-loom-groups.js");
-const diagramsNode = require("../nodes/openccu-loom-diagrams.js");
 const linksNode = require("../nodes/openccu-loom-links.js");
 const recordingNode = require("../nodes/openccu-loom-recording.js");
 const securityNode = require("../nodes/openccu-loom-security.js");
@@ -111,7 +110,6 @@ describe("contrib loads", function () {
     [alarmNode, "openccu-loom-alarm", { action: "state" }],
     [alarmAdminNode, "openccu-loom-alarm-admin", { action: "state" }],
     [groupsNode, "openccu-loom-groups", { action: "list" }],
-    [diagramsNode, "openccu-loom-diagrams", { action: "list" }],
     [linksNode, "openccu-loom-links", { action: "list" }],
     [recordingNode, "openccu-loom-recording", { action: "get" }],
     [securityNode, "openccu-loom-security", { action: "state" }],

@@ -48,7 +48,7 @@ against the entered host.
 
 At deploy (and on demand, cached for 60 s), the server config node performs
 `GET /info` and records the daemon's `api_version` and `capabilities`. This
-package supports API major `7`; a daemon reporting a different major gets a
+package supports API major `17`; a daemon reporting a different major gets a
 one-time `node.warn`, but calls still go through — a major mismatch is
 advisory, not a hard stop. Command nodes that depend on an optional daemon
 feature call the config node's async `hasCapability("token")` (e.g.
@@ -243,12 +243,6 @@ Administers the CCU's heating groups (`/groups`). Actions: `list`, `types`
 `msg.typeId` may take), `create`, `update`, `delete`. `msg.members` supplies
 the member list; mutating calls require admin.
 
-### `diagrams`
-
-CRUD for the Config UI's saved diagram definitions (`/diagrams`). `list`
-returns the caller's own plus the shared ones; `msg.config` carries the
-definition, `msg.visibility` is `private|shared`.
-
 ### `links`
 
 `list` — the global direct-link overview (`GET /links`, `msg.locale` steers the
@@ -259,8 +253,9 @@ stays on the WebSocket (`central.create_links` / `central.remove_links` via the
 
 ### `recording`
 
-Reads and sets the per-data-point history recording state
-(`GET/PUT /history/recording`). Both actions address one data point via
+Reads and sets whether one data point is forwarded to the daemon's
+measurement target (`GET/PUT /measurements/recording`, present only while the
+daemon advertises `measurements.v1`). Both actions address one data point via
 `msg.central`, `msg.interfaceId`, `msg.channel` and `msg.parameter`; `get`
 reports `{record, source}`, and `set` without `msg.record` clears the override
 and hands the data point back to the configured default.

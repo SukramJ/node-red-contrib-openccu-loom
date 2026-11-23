@@ -3,6 +3,35 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.0] - 2026-11-23
+
+Tracks the daemon's API 17.0.0 (openccu-loom 0.107.0), up from 15.1.0.
+
+### Changed
+
+- **`SUPPORTED_API_MAJOR` raised 15 -> 17 and the vendored spec refreshed to
+  the v0.107.0 tag.** A daemon from 0.100.0 on reports API 16 or 17, which
+  the server node did not accept as supported. API 17.0.0 renames the timer
+  keys of the MP3P LED and sound player to `seconds` / `transition`, which no
+  node of this package sends; the break that reaches this package is API
+  16.0.0's.
+
+- **The `recording` node talks to `/measurements/recording`.** API 16.0.0
+  moved the per-data-point recording override from `/history/recording` to
+  `/measurements/recording`, with the same query parameters, body and
+  reply; the route exists only while the daemon's measurement forwarding is
+  on (`measurements.v1`). Against a daemon from 0.100.0 on, the node used to
+  get a 404.
+
+### Removed
+
+- **Breaking: the `diagrams` node.** API 16.0.0 removed the daemon's saved
+  diagram definitions (`/diagrams`, capability `diagrams.v1`) without a
+  replacement; measurements go to an external time-series store instead.
+  The node could only fail against a daemon from 0.100.0 on. Flows that
+  still contain it show it as an unknown node after the update; delete it
+  there.
+
 ## [0.9.0] - 2026-10-30
 
 Tracks the daemon's API 15.1.0 (openccu-loom 0.95.0), up from 13.9.1.
