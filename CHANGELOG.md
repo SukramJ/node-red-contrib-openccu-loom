@@ -3,6 +3,32 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.0] - 2026-11-26
+
+Tracks the daemon's API 18.0.0 (openccu-loom 0.108.0), up from 17.0.0.
+
+### Changed
+
+- **`SUPPORTED_API_MAJOR` raised 17 -> 18 and the vendored spec refreshed to
+  the v0.108.0 tag.** API 18.0.0 changes only the Matter node routes under
+  `/node/…`; no other route this package calls moved.
+
+- **The `matter` node sends `X-Fabric-UI: 1` on every `/node/…` request.**
+  Since API 18.0.0 the daemon serves the node routes with go-fabric-ui's
+  admin gate: a request has admin rights only when the token's user holds
+  the admin role and the request carries that header. Without it every
+  action except `status` got 403 `forbidden` — `compatibility`,
+  `endpoints`, `mdns`, `sessions`, `events`, `fabrics`, `exposure` and the
+  pairing codes included. The `api` node sends the header too when its path
+  is under `/node`.
+
+- **The `matter` node needs an admin token for its reads.** Every action
+  except `status` is admin-only from API 18.0.0 on; `status` answers a
+  non-admin with less detail. The daemon also answers 403
+  `host_not_allowed` on `/node/…` when the server node connects under a DNS
+  name other than the host of `north.rest.public_url` or
+  `<hostname>.local`; IP addresses and loopback names are always accepted.
+
 ## [0.10.0] - 2026-11-23
 
 Tracks the daemon's API 17.0.0 (openccu-loom 0.107.0), up from 15.1.0.

@@ -12,6 +12,9 @@ helper.init(require.resolve("node-red"));
 function startBackend() {
   return new Promise((resolve) => {
     const requests = [];
+    // X-Fabric-UI per recorded request, kept apart so the request
+    // comparisons below stay as they are.
+    const marks = [];
     const srv = http.createServer((req, res) => {
       const chunks = [];
       req.on("data", (c) => chunks.push(c));
@@ -25,12 +28,15 @@ function startBackend() {
             body = raw;
           }
         }
-        if (req.url !== "/api/v1/info") requests.push({ method: req.method, url: req.url, body });
+        if (req.url !== "/api/v1/info") {
+          requests.push({ method: req.method, url: req.url, body });
+          marks.push(req.headers["x-fabric-ui"]);
+        }
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ echo: req.url, method: req.method }));
       });
     });
-    srv.listen(0, "127.0.0.1", () => resolve({ srv, requests }));
+    srv.listen(0, "127.0.0.1", () => resolve({ srv, requests, marks }));
   });
 }
 
@@ -57,11 +63,13 @@ function flow(port, extra) {
 describe("openccu-loom-api", function () {
   let backend;
   let requests;
+  let marks;
 
   beforeEach(function (done) {
-    startBackend().then(({ srv, requests: r }) => {
+    startBackend().then(({ srv, requests: r, marks: m }) => {
       backend = srv;
       requests = r;
+      marks = m;
       helper.startServer(done);
     });
   });
@@ -101,6 +109,30 @@ describe("openccu-loom-api", function () {
         }
       });
       helper.getNode("n1").receive({ query: { type: "SWITCH", limit: 5 } });
+    });
+  });
+
+  it("marks a path under /node with X-Fabric-UI and leaves other paths unmarked", function (done) {
+    const port = backend.address().port;
+    helper.load([serverNode, apiNode], flow(port, { method: "GET", path: "/devices" }), function () {
+      const n2 = helper.getNode("n2");
+      let seen = 0;
+      n2.on("input", () => {
+        if (++seen < 2) return;
+        try {
+          assert.deepStrictEqual(
+            requests.map((r) => r.url),
+            ["/api/v1/node/endpoints", "/api/v1/devices"]
+          );
+          assert.deepStrictEqual(marks, ["1", undefined]);
+          done();
+        } catch (e) {
+          done(e);
+        }
+      });
+      const n1 = helper.getNode("n1");
+      n1.receive({ path: "node/endpoints" });
+      setTimeout(() => n1.receive({}), 50);
     });
   });
 

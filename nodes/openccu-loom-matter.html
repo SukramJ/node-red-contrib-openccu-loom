@@ -76,7 +76,14 @@
   <p>The Matter bridge surface (<code>/node/…</code> since daemon API 14):
   what the bridge exposes to Matter controllers, which ecosystems are
   commissioned to it, and the commissioning windows that let new ones in.
-  Every write and the pairing codes need an admin.</p>
+  Since daemon API 18 every action except <b>status</b> needs a token
+  whose user holds the admin role, the reads included; <b>status</b>
+  answers a non-admin with less detail. The node marks each request with
+  <code>X-Fabric-UI: 1</code>, which the daemon requires before it grants
+  admin rights there. Connect the server node by IP address, a loopback
+  name, the host of <code>north.rest.public_url</code> or
+  <code>&lt;hostname&gt;.local</code>: any other DNS name gets 403
+  <code>host_not_allowed</code>.</p>
 
   <h3>Status and topology</h3>
   <ul>
