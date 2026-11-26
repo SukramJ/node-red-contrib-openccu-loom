@@ -29,6 +29,8 @@ Tracks the daemon's API 18.0.0 (openccu-loom 0.108.0), up from 17.0.0.
   name other than the host of `north.rest.public_url` or
   `<hostname>.local`; IP addresses and loopback names are always accepted.
 
+- The package's author contact is `me@sukramj.dev`.
+
 ## [0.10.0] - 2026-11-23
 
 Tracks the daemon's API 17.0.0 (openccu-loom 0.107.0), up from 15.1.0.
