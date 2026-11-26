@@ -312,8 +312,15 @@ Classes: `smoke`, `water`, `gas`, `co`, `tamper`, `battery`, `technical`,
 
 ### `matter`
 
-The Matter bridge surface (`/node/…` since daemon API 14). Every write and
-the pairing codes need an admin.
+The Matter bridge surface (`/node/…` since daemon API 14). Since daemon API
+18 (openccu-loom 0.108.0) every action except `status` needs a token whose
+user holds the admin role — the reads included; `status` answers a
+non-admin with less detail. The node marks each `/node/…` request with
+`X-Fabric-UI: 1`, which the daemon requires before it grants admin rights
+there. The daemon also checks the host name the server node connects to:
+an IP address, a loopback name, the host of `north.rest.public_url` and
+`<hostname>.local` are accepted; any other DNS name gets 403
+`host_not_allowed` on `/node/…`.
 
 * **Status and topology** — `status`, `compatibility`, `endpoints`, `mdns`,
   `sessions`, `events`, and `force-sync` to rebuild the endpoints from the

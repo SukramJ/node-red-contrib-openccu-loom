@@ -56,6 +56,7 @@ function startEchoBackend(respond) {
           // the multipart test reaches for them explicitly.
           entry.rawBody = rawBuf;
           entry.contentType = req.headers["content-type"] || "";
+          entry.fabricUI = req.headers["x-fabric-ui"];
         }
         if (respond && respond(entry, res)) return;
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -699,6 +700,12 @@ describe("API 7.x REST surface", function () {
         n2.on("input", () => {
           try {
             assert.deepStrictEqual(seen(requests), [expected]);
+            // Every /node/… request is marked for go-fabric-ui's admin
+            // gate; no other route carries the marker.
+            for (const r of requests) {
+              const nodeRoute = r.url === "/node" || r.url.startsWith("/node/") || r.url.startsWith("/node?");
+              assert.strictEqual(r.fabricUI, nodeRoute ? "1" : undefined, `X-Fabric-UI on ${r.method} ${r.url}`);
+            }
             done();
           } catch (e) {
             done(e);
